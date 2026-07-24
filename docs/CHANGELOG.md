@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Changed
+- **Rediseño de Vista Dividida (Split View)**:
+  - Eliminados los títulos "Panel Izquierdo" y "Panel Derecho" de la cabecera de los paneles.
+  - Se muestra únicamente la ruta actual formateada como breadcrumbs de forma compacta.
+  - Integración de Split View con el sistema de pestañas (Tabs): al activar Split View, el panel izquierdo mantiene la pestaña activa y el panel derecho muestra la siguiente pestaña abierta (o crea una copia si solo hay una).
+  - Al hacer click en cualquier pestaña de la barra de pestañas en Split View, se asigna esa pestaña al panel enfocado.
+  - Ocultada la columna "Tipo" en modo Split View.
+  - Formateo de fecha de modificación compacto (DD/MM/YY HH:mm) con prevención de saltos de línea (`whitespace-nowrap`) para mejorar el uso del espacio horizontal.
 
 ### Added
 - **Navegación en Vista Dividida / Panel Doble (Split View / Dual-pane)**:

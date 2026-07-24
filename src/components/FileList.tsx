@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Folder,
   File,
@@ -67,9 +67,28 @@ function formatFileSize(bytes: number, isDir: boolean): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-function formatDate(timestamp: number | null): string {
+function formatBreadcrumbs(path: string): string {
+  const parts = path.split(/[/\\]+/).filter(Boolean);
+  if (parts.length === 0) return path;
+
+  // For Windows paths like C:
+  if (parts[0].endsWith(":")) {
+    parts[0] = parts[0].toUpperCase();
+  }
+  return parts.join(" › ");
+}
+
+function formatDate(timestamp: number | null, compact: boolean = false): string {
   if (!timestamp) return "--";
   const date = new Date(timestamp);
+  if (compact) {
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = String(date.getFullYear()).slice(-2); // YY format
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  }
   return date.toLocaleString(undefined, {
     year: "numeric",
     month: "2-digit",
@@ -157,7 +176,6 @@ export function FileList({
   isSplitViewOpen = false,
   targetPanelPath,
   onOtherPanelRefresh,
-  panelSide,
   isActivePanel = true,
   onPanelFocus,
 }: FileListProps) {
@@ -346,15 +364,12 @@ export function FileList({
   return (
     <div className={`p-4 ${panelContainerStyles}`} onClick={handleContainerClick}>
       {isSplitViewOpen && (
-        <div className="mb-2 flex items-center justify-between text-xs px-1">
-          <span className="font-semibold flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${isActivePanel ? "bg-blue-400 animate-pulse" : "bg-gray-600"}`} />
-            <span className={isActivePanel ? "text-blue-300" : "text-gray-400"}>
-              {panelSide === "left" ? "Panel Izquierdo" : "Panel Derecho"}
+        <div className="mb-2 flex items-center text-xs px-1 py-0.5 border-b border-gray-800/40 pb-1.5">
+          <span className="font-semibold flex items-center gap-1.5 min-w-0 max-w-full">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${isActivePanel ? "bg-blue-400 animate-pulse" : "bg-gray-600"}`} />
+            <span className={`truncate font-mono text-[11px] ${isActivePanel ? "text-blue-300 font-medium" : "text-gray-500"}`} title={currentPath}>
+              {formatBreadcrumbs(currentPath)}
             </span>
-          </span>
-          <span className="text-[11px] text-gray-500 font-mono truncate max-w-[240px]">
-            {currentPath}
           </span>
         </div>
       )}
@@ -419,15 +434,17 @@ export function FileList({
                 </div>
               </th>
 
-              <th
-                onClick={() => handleHeaderClick("type")}
-                className={`py-3 px-4 ${isSearchMode ? "w-[15%]" : "w-[18%]"} cursor-pointer hover:text-white transition-colors`}
-              >
-                <div className="flex items-center">
-                  <span>Tipo</span>
-                  {renderSortIndicator("type")}
-                </div>
-              </th>
+              {!isSplitViewOpen && (
+                <th
+                  onClick={() => handleHeaderClick("type")}
+                  className={`py-3 px-4 ${isSearchMode ? "w-[15%]" : "w-[18%]"} cursor-pointer hover:text-white transition-colors`}
+                >
+                  <div className="flex items-center">
+                    <span>Tipo</span>
+                    {renderSortIndicator("type")}
+                  </div>
+                </th>
+              )}
 
               <th
                 onClick={() => handleHeaderClick("size")}
@@ -493,17 +510,19 @@ export function FileList({
                   )}
 
                   {/* Modified date column */}
-                  <td className="py-2.5 px-4 text-gray-400 text-xs font-mono">
-                    {formatDate(item.modified_at)}
+                  <td className="py-2.5 px-4 text-gray-400 text-xs font-mono whitespace-nowrap">
+                    {formatDate(item.modified_at, isSplitViewOpen)}
                   </td>
 
                   {/* Type column */}
-                  <td className="py-2.5 px-4 text-gray-400 text-xs">
-                    {getFileTypeLabel(item)}
-                  </td>
+                  {!isSplitViewOpen && (
+                    <td className="py-2.5 px-4 text-gray-400 text-xs">
+                      {getFileTypeLabel(item)}
+                    </td>
+                  )}
 
                   {/* Size column */}
-                  <td className="py-2.5 px-4 text-gray-400 text-xs font-mono text-right">
+                  <td className="py-2.5 px-4 text-gray-400 text-xs font-mono text-right whitespace-nowrap">
                     {formatFileSize(item.size, item.is_dir)}
                   </td>
                 </tr>

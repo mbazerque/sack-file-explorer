@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 import { Tab, PanelState } from "../types/tab";
 
 export function getTabTitle(path: string): string {
@@ -49,11 +49,38 @@ const TabContext = createContext<TabContextType | null>(null);
 
 export function TabProvider({ children }: { children: ReactNode }) {
   const [tabs, setTabs] = useState<Tab[]>([initialTab]);
-  const [activeTabId, setActiveTabId] = useState<string>(initialTab.id);
+  const [activeTabIdState, setActiveTabIdState] = useState<string>(initialTab.id);
+  const [isSplitViewOpen, setIsSplitViewOpen] = useState<boolean>(false);
+  const [leftTabId, setLeftTabId] = useState<string>(initialTab.id);
+  const [rightTabId, setRightTabId] = useState<string>(initialTab.id);
+  const [activePanel, setActivePanelState] = useState<"left" | "right">("left");
 
-  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
-  const activePanelState = activeTab.activePanel === "left" ? activeTab.leftPanel : activeTab.rightPanel;
-  const otherPanelState = activeTab.activePanel === "left" ? activeTab.rightPanel : activeTab.leftPanel;
+  const activeTabId = isSplitViewOpen
+    ? (activePanel === "left" ? leftTabId : rightTabId)
+    : activeTabIdState;
+
+  const currentActiveTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+
+  const exposedActiveTab: Tab = {
+    ...currentActiveTab,
+    isSplitViewOpen,
+    activePanel: isSplitViewOpen ? activePanel : currentActiveTab.activePanel,
+    leftPanel: isSplitViewOpen
+      ? (tabs.find((t) => t.id === leftTabId)?.leftPanel || currentActiveTab.leftPanel)
+      : currentActiveTab.leftPanel,
+    rightPanel: isSplitViewOpen
+      ? (tabs.find((t) => t.id === rightTabId)?.leftPanel || currentActiveTab.rightPanel)
+      : currentActiveTab.rightPanel,
+  };
+
+  const activePanelState = exposedActiveTab.activePanel === "left" ? exposedActiveTab.leftPanel : exposedActiveTab.rightPanel;
+  const otherPanelState = exposedActiveTab.activePanel === "left" ? exposedActiveTab.rightPanel : exposedActiveTab.leftPanel;
+
+  const exposedTabs = tabs.map((t) => ({
+    ...t,
+    isSplitViewOpen: t.id === activeTabId ? isSplitViewOpen : t.isSplitViewOpen,
+    rightPanel: t.leftPanel,
+  }));
 
   const createTab = useCallback((initialPath: string = DEFAULT_INITIAL_PATH) => {
     const newId = `tab-${Date.now()}`;
@@ -74,8 +101,16 @@ export function TabProvider({ children }: { children: ReactNode }) {
     };
 
     setTabs((prev) => [...prev, newTab]);
-    setActiveTabId(newId);
-  }, []);
+    if (isSplitViewOpen) {
+      if (activePanel === "left") {
+        setLeftTabId(newId);
+      } else {
+        setRightTabId(newId);
+      }
+    } else {
+      setActiveTabIdState(newId);
+    }
+  }, [isSplitViewOpen, activePanel]);
 
   const closeTab = useCallback(
     (id: string) => {
@@ -87,107 +122,161 @@ export function TabProvider({ children }: { children: ReactNode }) {
 
         const newTabs = prev.filter((t) => t.id !== id);
 
-        if (activeTabId === id) {
-          const nextIndex = Math.max(0, targetIndex - 1);
-          setActiveTabId(newTabs[nextIndex].id);
+        if (isSplitViewOpen) {
+          if (newTabs.length === 1) {
+            setIsSplitViewOpen(false);
+            const remainingTabId = newTabs[0].id;
+            setActiveTabIdState(remainingTabId);
+          } else {
+            if (leftTabId === id) {
+              const nextLeft = newTabs.find((t) => t.id !== rightTabId) || newTabs[0];
+              setLeftTabId(nextLeft.id);
+            }
+            if (rightTabId === id) {
+              const nextRight = newTabs.find((t) => t.id !== leftTabId) || newTabs[0];
+              setRightTabId(nextRight.id);
+            }
+          }
+        } else {
+          if (activeTabIdState === id) {
+            const nextIndex = Math.max(0, targetIndex - 1);
+            setActiveTabIdState(newTabs[nextIndex].id);
+          }
         }
 
         return newTabs;
       });
     },
-    [activeTabId]
+    [isSplitViewOpen, leftTabId, rightTabId, activeTabIdState]
   );
 
   const selectTab = useCallback((id: string) => {
-    setActiveTabId(id);
-  }, []);
+    if (isSplitViewOpen) {
+      if (activePanel === "left") {
+        setLeftTabId(id);
+      } else {
+        setRightTabId(id);
+      }
+    } else {
+      setActiveTabIdState(id);
+    }
+  }, [isSplitViewOpen, activePanel]);
 
   const toggleSplitView = useCallback(() => {
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabId) return t;
+    if (!isSplitViewOpen) {
+      const currentActive = activeTabIdState;
+      setLeftTabId(currentActive);
 
-        const nextSplitState = !t.isSplitViewOpen;
-        // If turning on split view, sync right panel path with left panel if right is unchanged
-        const updatedRight = {
-          ...t.rightPanel,
-          currentPath: nextSplitState && t.rightPanel.currentPath === DEFAULT_INITIAL_PATH ? t.leftPanel.currentPath : t.rightPanel.currentPath,
-          history: nextSplitState && t.rightPanel.currentPath === DEFAULT_INITIAL_PATH ? [...t.leftPanel.history] : t.rightPanel.history,
+      const currentIndex = tabs.findIndex((t) => t.id === currentActive);
+      if (tabs.length > 1) {
+        const nextIndex = (currentIndex + 1) % tabs.length;
+        setRightTabId(tabs[nextIndex].id);
+        setIsSplitViewOpen(true);
+        setActivePanelState("left");
+      } else {
+        const activeTabObj = tabs[0] || initialTab;
+        const newId = `tab-${Date.now()}`;
+        const clonedTab: Tab = {
+          ...activeTabObj,
+          id: newId,
+          leftPanel: { ...activeTabObj.leftPanel, history: [...activeTabObj.leftPanel.history] },
+          rightPanel: { ...activeTabObj.rightPanel, history: [...activeTabObj.rightPanel.history] },
+          title: `${activeTabObj.title} (Copia)`,
+          isSplitViewOpen: false,
         };
-
-        return {
-          ...t,
-          isSplitViewOpen: nextSplitState,
-          rightPanel: updatedRight,
-        };
-      })
-    );
-  }, [activeTabId]);
+        setTabs((prevTabs) => [...prevTabs, clonedTab]);
+        setRightTabId(newId);
+        setIsSplitViewOpen(true);
+        setActivePanelState("left");
+      }
+    } else {
+      const finalActiveTabId = activePanel === "left" ? leftTabId : rightTabId;
+      setActiveTabIdState(finalActiveTabId);
+      setIsSplitViewOpen(false);
+    }
+  }, [isSplitViewOpen, activeTabIdState, tabs, activePanel, leftTabId, rightTabId]);
 
   const setActivePanel = useCallback(
     (panel: "left" | "right") => {
-      setTabs((prev) =>
-        prev.map((t) => (t.id === activeTabId ? { ...t, activePanel: panel } : t))
-      );
+      if (isSplitViewOpen) {
+        setActivePanelState(panel);
+      } else {
+        setTabs((prev) =>
+          prev.map((t) => (t.id === activeTabId ? { ...t, activePanel: panel } : t))
+        );
+      }
     },
-    [activeTabId]
+    [isSplitViewOpen, activeTabId]
   );
 
   const updatePanel = useCallback(
     (panel: "left" | "right", updates: Partial<PanelState>) => {
+      let targetTabId = activeTabId;
+      if (isSplitViewOpen) {
+        targetTabId = panel === "left" ? leftTabId : rightTabId;
+      }
+
       setTabs((prev) =>
         prev.map((tab) => {
-          if (tab.id !== activeTabId) return tab;
+          if (tab.id !== targetTabId) return tab;
 
-          const targetPanel = panel === "left" ? tab.leftPanel : tab.rightPanel;
-          const updatedPanelState: PanelState = { ...targetPanel, ...updates };
-
-          const isLeftActive = tab.activePanel === "left";
-          const mainPath = isLeftActive
-            ? panel === "left"
-              ? updatedPanelState.currentPath
-              : tab.leftPanel.currentPath
-            : panel === "right"
-            ? updatedPanelState.currentPath
-            : tab.leftPanel.currentPath;
+          const targetPanelState = tab.leftPanel;
+          const updatedPanelState: PanelState = { ...targetPanelState, ...updates };
 
           return {
             ...tab,
-            title: getTabTitle(mainPath),
-            [panel === "left" ? "leftPanel" : "rightPanel"]: updatedPanelState,
+            title: getTabTitle(updatedPanelState.currentPath),
+            leftPanel: updatedPanelState,
+            rightPanel: updatedPanelState,
           };
         })
       );
     },
-    [activeTabId]
+    [isSplitViewOpen, activeTabId, leftTabId, rightTabId]
   );
 
   const updateActivePanel = useCallback(
     (updates: Partial<PanelState>) => {
-      updatePanel(activeTab.activePanel, updates);
+      updatePanel(exposedActiveTab.activePanel, updates);
     },
-    [activeTab.activePanel, updatePanel]
+    [exposedActiveTab.activePanel, updatePanel]
   );
 
   const nextTab = useCallback(() => {
-    setTabs((prev) => {
-      if (prev.length <= 1) return prev;
-      const currentIndex = prev.findIndex((t) => t.id === activeTabId);
-      const nextIndex = (currentIndex + 1) % prev.length;
-      setActiveTabId(prev[nextIndex].id);
-      return prev;
-    });
-  }, [activeTabId]);
+    if (tabs.length <= 1) return;
+    const currentActive = isSplitViewOpen ? (activePanel === "left" ? leftTabId : rightTabId) : activeTabIdState;
+    const currentIndex = tabs.findIndex((t) => t.id === currentActive);
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    const nextId = tabs[nextIndex].id;
+
+    if (isSplitViewOpen) {
+      if (activePanel === "left") {
+        setLeftTabId(nextId);
+      } else {
+        setRightTabId(nextId);
+      }
+    } else {
+      setActiveTabIdState(nextId);
+    }
+  }, [tabs, isSplitViewOpen, activePanel, leftTabId, rightTabId, activeTabIdState]);
 
   const previousTab = useCallback(() => {
-    setTabs((prev) => {
-      if (prev.length <= 1) return prev;
-      const currentIndex = prev.findIndex((t) => t.id === activeTabId);
-      const prevIndex = (currentIndex - 1 + prev.length) % prev.length;
-      setActiveTabId(prev[prevIndex].id);
-      return prev;
-    });
-  }, [activeTabId]);
+    if (tabs.length <= 1) return;
+    const currentActive = isSplitViewOpen ? (activePanel === "left" ? leftTabId : rightTabId) : activeTabIdState;
+    const currentIndex = tabs.findIndex((t) => t.id === currentActive);
+    const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    const prevId = tabs[prevIndex].id;
+
+    if (isSplitViewOpen) {
+      if (activePanel === "left") {
+        setLeftTabId(prevId);
+      } else {
+        setRightTabId(prevId);
+      }
+    } else {
+      setActiveTabIdState(prevId);
+    }
+  }, [tabs, isSplitViewOpen, activePanel, leftTabId, rightTabId, activeTabIdState]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -227,9 +316,9 @@ export function TabProvider({ children }: { children: ReactNode }) {
   return (
     <TabContext.Provider
       value={{
-        tabs,
+        tabs: exposedTabs,
         activeTabId,
-        activeTab,
+        activeTab: exposedActiveTab,
         activePanelState,
         otherPanelState,
         createTab,
