@@ -1,33 +1,62 @@
 > **Note**: Every new feature, architecture change, or significant technical decision must be documented in this folder to maintain project clarity and onboarding ease.
 
-# Architecture & Design
+# Architecture & Technical Design
 
-This document details the architecture of the File Explorer, explaining folder structures, data flow, and key technical design decisions.
+This document details the software architecture of **File Explorer**, explaining the folder structure, component modularity, state management, and native Rust IPC integration.
 
-## Folder Structure
+## Project Structure
 
-- `/src`: Contains the React/TypeScript frontend.
-  - `/components`: Clean and independent UI components.
-    - `Navbar.tsx`: Smart address bar, navigation buttons, search input.
-    - `Sidebar.tsx`: Quick access to favorite locations and drives.
-    - `FileList.tsx`: Renders the grid/list of files and folders.
-  - `/hooks`: Custom React hooks.
-    - `useNavigation.ts`: Centralizes the state of the current path, file listing, error handling, and scanning logic.
-  - `App.tsx`: Main UI entry point that integrates the layout components.
-  - `App.css`: Main stylesheet containing Tailwind CSS directives.
-- `/src-tauri`: Contains the Rust backend for the Tauri application.
-  - `src/lib.rs`: The core Tauri backend logic, including all exposed Rust commands (e.g., `scan_directory`).
-  - `tauri.conf.json`: Tauri configuration (app identifiers, window settings, build scripts).
-- `/docs`: Project documentation, including roadmap and changelog.
+```text
+file-explorer/
+├── docs/                      # Architectural documentation, Roadmap, and Changelog
+├── src/                       # React 19 + TypeScript Frontend
+│   ├── components/            # Modularized UI Components
+│   │   ├── Navbar.tsx         # Address bar, navigation buttons (<, >, ⬆), keyboard shortcuts
+│   │   ├── Sidebar.tsx        # Quick access locations (Home, Documents, Downloads, Drives)
+│   │   ├── FileList.tsx       # Interactive metadata table view, sorting, selection
+│   │   ├── ContextMenu.tsx    # Floating right-click menu (Copy path, Terminal, Delete)
+│   │   └── Footer.tsx         # Status bar displaying file counts and selection details
+│   ├── hooks/                 # Custom React Hooks
+│   │   └── useNavigation.ts   # Centralized navigation state, history stack, selection & scan handlers
+│   ├── types/                 # TypeScript type declarations
+│   │   └── file.ts            # FileItem interface definition
+│   ├── App.tsx                # Main layout composition and global keyboard shortcuts
+│   └── App.css                # Tailwind CSS directives
+└── src-tauri/                 # Rust Backend (Tauri v2)
+    ├── capabilities/          # ACL security permissions (default.json)
+    ├── src/
+    │   └── lib.rs             # Core Rust backend & exposed IPC commands
+    └── Cargo.toml             # Cargo package manifest & Rust dependencies
+```
 
-## Data Flow (Rust & React)
+## Data Flow & Tauri IPC
 
-1. **User Interaction**: The user enters a directory path in the React frontend.
+```
+┌───────────────────────────────────────────────────────────┐
+│                    React Frontend (TSX)                   │
+│                                                           │
+│  [Navbar] ──> useNavigation Hook ──> [FileList]          │
+│       │               │                   │               │
+│  Navigation       `invoke()`         Row Select           │
+│  Back / Forward       │               & Sorting           │
+└───────────────────────┼───────────────────────────────────┘
+                        │ IPC Communication
+┌───────────────────────▼───────────────────────────────────┐
+│                    Rust Backend (lib.rs)                  │
+│                                                           │
+│  - scan_directory(path)  -> Vec<FileItem>                 │
+│  - open_in_terminal(path) -> Result<(), String>           │
+│  - delete_item(path)     -> Result<(), String>           │
+└───────────────────────────────────────────────────────────┘
+```
+
+1. **User Interaction**: The user clicks a folder, types a path, or uses keyboard shortcuts (<kbd>Backspace</kbd>, <kbd>F5</kbd>, <kbd>Ctrl+L</kbd>).
 2. **IPC Invocation**: React calls `invoke('scan_directory', { path })`.
-3. **Native Execution**: The Rust backend receives the IPC call, accesses the native file system, processes the data, and returns a response.
-4. **UI Update**: React receives the payload (`Vec<String>` from Rust) and updates the component state, rendering the new data.
+3. **Native Execution**: The Rust backend accesses `std::fs::read_dir`, collects metadata (`is_dir`, `size`, `modified_at`), sorts folders first, and returns a `Vec<FileItem>`.
+4. **UI Rendering**: React receives the typed JSON array and updates the component state inside `FileList.tsx`.
 
-## Technical Design Decisions
+## Key Technical Decisions
 
-- **Indexing**: To be implemented natively in Rust to offload heavy file traversal from the main thread, keeping the UI completely responsive.
-- **RAM Management**: Rust handles file metadata structures. Only the necessary data to display the current view (or the active virtual scroll window) is sent over IPC to the frontend to minimize memory bloat.
+- **Typed Contract (`FileItem`)**: Frontend and backend share an identical data shape (`name`, `is_dir`, `size`, `modified_at`), avoiding raw string parsing or unhandled properties.
+- **Client-Side Sorting**: Directory entries are sorted in memory for instant feedback when toggling column headers without extra IPC roundtrips.
+- **Contextual Actions**: Right-click context actions (`open_in_terminal`, `delete_item`) directly invoke native Rust system commands for maximum compatibility and performance.
