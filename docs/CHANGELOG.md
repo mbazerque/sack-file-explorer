@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Formateo de fecha de modificación compacto (DD/MM/YY HH:mm) con prevención de saltos de línea (`whitespace-nowrap`) para mejorar el uso del espacio horizontal.
 
 ### Added
+- **Vista Previa Rápida (Quick Preview Modal - Tecla Espacio)**:
+  - Modal flotante con desenfoque de fondo (`backdrop-blur`) activado mediante la barra espaciadora (`Espacio`) sobre el archivo seleccionado.
+  - Renderizado dinámico de archivos de texto/código (`.txt`, `.md`, `.json`, `.ts`, `.tsx`, `.rs`, `.css`, `.html`, `.env`, etc.) mediante comando nativo de Rust `read_file_content` con bloque `<pre><code>` y scroll independiente.
+  - Visualización de imágenes (`.png`, `.jpg`, `.jpeg`, `.svg`, `.webp`, `.gif`, `.ico`) adaptadas al modal usando `convertFileSrc`.
+  - Fallback con mensaje informativo y tarjeta de metadatos (nombre, ruta, tamaño, fecha de modificación) para archivos binarios o no soportados.
+  - Atajos de teclado: `Espacio` o `Esc` para alternar/cerrar la vista previa y flechas `⬆ / ⬇` para navegar la lista de archivos actualizando la vista previa de forma instantánea.
 - **Navegación en Vista Dividida / Panel Doble (Split View / Dual-pane)**:
   - Soporte para vista dividida con dos paneles independientes de exploración (`leftPanel` y `rightPanel`) con navegación, búsqueda y selecciones aisladas.
   - Indicador visual del panel activo con resaltado de borde sutil (`ring-1 ring-blue-500/50`) y cambio reactivo al hacer clic en cualquiera de los dos paneles.

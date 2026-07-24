@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Folder,
   File,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { FileItem, FileInfo } from "../types/file";
 import { ContextMenu } from "./ContextMenu";
+import { QuickPreviewModal } from "./QuickPreviewModal";
 
 export type ListItem = FileItem | FileInfo;
 
@@ -190,6 +191,7 @@ export function FileList({
     y: number;
     item: ListItem;
   } | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const handleHeaderClick = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -235,6 +237,47 @@ export function FileList({
       return sortDirection === "asc" ? cmp : -cmp;
     });
   }, [files, sortColumn, sortDirection, isSearchMode]);
+
+  // Keyboard navigation & Quick Preview shortcut (Space, Esc, ArrowUp, ArrowDown)
+  useEffect(() => {
+    if (!isActivePanel) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInputFocused =
+        document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement ||
+        (document.activeElement as HTMLElement)?.isContentEditable;
+
+      if (isInputFocused) return;
+
+      if (e.code === "Space" || e.key === " ") {
+        if (selectedItem) {
+          e.preventDefault();
+          setIsPreviewOpen((prev) => !prev);
+        }
+      } else if (e.key === "Escape") {
+        if (isPreviewOpen) {
+          e.preventDefault();
+          setIsPreviewOpen(false);
+        }
+      } else if (e.key === "ArrowDown") {
+        if (sortedFiles.length === 0) return;
+        e.preventDefault();
+        const currentIndex = selectedItem ? sortedFiles.findIndex((f) => f.name === selectedItem.name) : -1;
+        const nextIndex = currentIndex < sortedFiles.length - 1 ? currentIndex + 1 : 0;
+        onSelectItem(sortedFiles[nextIndex]);
+      } else if (e.key === "ArrowUp") {
+        if (sortedFiles.length === 0) return;
+        e.preventDefault();
+        const currentIndex = selectedItem ? sortedFiles.findIndex((f) => f.name === selectedItem.name) : -1;
+        const prevIndex = currentIndex > 0 ? currentIndex - 1 : sortedFiles.length - 1;
+        onSelectItem(sortedFiles[prevIndex]);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isActivePanel, selectedItem, isPreviewOpen, sortedFiles, onSelectItem]);
 
   const handleContainerClick = () => {
     if (onPanelFocus) onPanelFocus();
@@ -548,6 +591,13 @@ export function FileList({
           }}
         />
       )}
+
+      <QuickPreviewModal
+        item={selectedItem}
+        currentPath={currentPath}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+      />
     </div>
   );
 }

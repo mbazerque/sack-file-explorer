@@ -1,4 +1,4 @@
-﻿mod search;
+mod search;
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -128,6 +128,25 @@ fn move_item(src: String, dst_dir: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn read_file_content(path: String) -> Result<String, String> {
+    let metadata = fs::metadata(&path).map_err(|e| format!("Failed to read metadata: {}", e))?;
+    if metadata.is_dir() {
+        return Err("Cannot read content of a directory".into());
+    }
+    if metadata.len() > 2 * 1024 * 1024 {
+        let file = fs::File::open(&path).map_err(|e| format!("Failed to open file: {}", e))?;
+        use std::io::Read;
+        let mut handle = file.take(2 * 1024 * 1024);
+        let mut buffer = Vec::new();
+        handle.read_to_end(&mut buffer).map_err(|e| format!("Failed to read file: {}", e))?;
+        let text = String::from_utf8_lossy(&buffer).to_string();
+        return Ok(format!("{}\n\n--- [Contenido truncado por superar 2MB] ---", text));
+    }
+    let content = fs::read_to_string(&path).map_err(|e| format!("Failed to read file as text: {}", e))?;
+    Ok(content)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -140,6 +159,7 @@ pub fn run() {
             copy_item,
             move_item,
             search::search_files,
+            read_file_content,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
