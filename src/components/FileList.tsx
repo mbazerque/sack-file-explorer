@@ -34,6 +34,13 @@ interface FileListProps {
   isSearchMode?: boolean;
   searchQuery?: string;
   useFuzzy?: boolean;
+  // Split View Props
+  isSplitViewOpen?: boolean;
+  targetPanelPath?: string;
+  onOtherPanelRefresh?: () => void;
+  panelSide?: "left" | "right";
+  isActivePanel?: boolean;
+  onPanelFocus?: () => void;
 }
 
 type SortColumn = "name" | "modified_at" | "type" | "size" | "relative_path" | "score";
@@ -147,6 +154,12 @@ export function FileList({
   isSearchMode = false,
   searchQuery = "",
   useFuzzy = true,
+  isSplitViewOpen = false,
+  targetPanelPath,
+  onOtherPanelRefresh,
+  panelSide,
+  isActivePanel = true,
+  onPanelFocus,
 }: FileListProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>(
     isSearchMode && useFuzzy ? "score" : "name"
@@ -165,14 +178,12 @@ export function FileList({
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortColumn(column);
-      // Default score column to desc, others to asc
       setSortDirection(column === "score" ? "desc" : "asc");
     }
   };
 
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
-      // In normal mode, folders always on top. In search mode with fuzzy, sort strictly by score or selected column.
       if (!isSearchMode && a.is_dir !== b.is_dir) {
         return a.is_dir ? -1 : 1;
       }
@@ -207,12 +218,19 @@ export function FileList({
     });
   }, [files, sortColumn, sortDirection, isSearchMode]);
 
+  const handleContainerClick = () => {
+    if (onPanelFocus) onPanelFocus();
+    onSelectItem(null);
+  };
+
   const handleRowClick = (item: ListItem, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (onPanelFocus) onPanelFocus();
     onSelectItem(item);
   };
 
   const handleRowDoubleClick = (item: ListItem) => {
+    if (onPanelFocus) onPanelFocus();
     const fileInfo = item as Partial<FileInfo>;
     if (fileInfo.path) {
       if (item.is_dir) {
@@ -229,6 +247,7 @@ export function FileList({
   const handleContextMenu = (item: ListItem, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (onPanelFocus) onPanelFocus();
     onSelectItem(item);
     setContextMenu({
       x: e.clientX,
@@ -246,9 +265,15 @@ export function FileList({
     );
   };
 
+  const panelContainerStyles = isSplitViewOpen
+    ? isActivePanel
+      ? "ring-1 ring-blue-500/50 border border-blue-500/30 rounded-xl"
+      : "opacity-85 border border-gray-800 rounded-xl hover:opacity-100"
+    : "";
+
   if (errorMsg) {
     return (
-      <div className="p-6">
+      <div className={`p-6 ${panelContainerStyles}`} onClick={handleContainerClick}>
         <div className="p-4 bg-red-950/60 border border-red-800/80 text-red-200 rounded-xl flex items-start gap-3 shadow-lg">
           <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
           <div>
@@ -262,7 +287,7 @@ export function FileList({
 
   if (isScanning) {
     return (
-      <div className="p-4 space-y-3">
+      <div className={`p-4 space-y-3 ${panelContainerStyles}`} onClick={handleContainerClick}>
         <div className="flex items-center gap-2 text-sm text-blue-400 animate-pulse mb-4">
           <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           <span>{isSearchMode ? "Buscando archivos con motor de Rust..." : "Obteniendo archivos del sistema..."}</span>
@@ -300,8 +325,8 @@ export function FileList({
   if (files.length === 0) {
     return (
       <div
-        className="h-full flex flex-col items-center justify-center text-gray-400 p-8 select-none"
-        onClick={() => onSelectItem(null)}
+        className={`h-full flex flex-col items-center justify-center text-gray-400 p-8 select-none ${panelContainerStyles}`}
+        onClick={handleContainerClick}
       >
         <div className="w-16 h-16 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center mb-4 text-gray-500 shadow-inner">
           {isSearchMode ? <Search className="w-8 h-8 text-blue-400" /> : <FolderOpen className="w-8 h-8" />}
@@ -311,7 +336,7 @@ export function FileList({
         </h3>
         <p className="text-sm text-gray-500 mt-1 max-w-md text-center">
           {isSearchMode
-            ? `No se encontraron archivos en "${currentPath}" que coincidan con la búsqueda. Intenta desactivar o activar Fuzzy Search.`
+            ? `No se encontraron archivos en "${currentPath}" que coincidan con la búsqueda.`
             : "No hay archivos ni subcarpetas para mostrar en esta ubicación."}
         </p>
       </div>
@@ -319,7 +344,21 @@ export function FileList({
   }
 
   return (
-    <div className="p-4" onClick={() => onSelectItem(null)}>
+    <div className={`p-4 ${panelContainerStyles}`} onClick={handleContainerClick}>
+      {isSplitViewOpen && (
+        <div className="mb-2 flex items-center justify-between text-xs px-1">
+          <span className="font-semibold flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${isActivePanel ? "bg-blue-400 animate-pulse" : "bg-gray-600"}`} />
+            <span className={isActivePanel ? "text-blue-300" : "text-gray-400"}>
+              {panelSide === "left" ? "Panel Izquierdo" : "Panel Derecho"}
+            </span>
+          </span>
+          <span className="text-[11px] text-gray-500 font-mono truncate max-w-[240px]">
+            {currentPath}
+          </span>
+        </div>
+      )}
+
       {isSearchMode && (
         <div className="mb-3 flex items-center justify-between text-xs text-gray-400 px-1">
           <span className="flex items-center gap-1.5">
@@ -329,7 +368,6 @@ export function FileList({
               "{searchQuery}"
             </span>
           </span>
-          <span className="text-gray-400 font-mono">Presioná <kbd className="px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">Esc</kbd> para volver</span>
         </div>
       )}
 
@@ -483,6 +521,12 @@ export function FileList({
           currentPath={currentPath}
           onClose={() => setContextMenu(null)}
           onDeleteSuccess={onRefresh}
+          isSplitViewOpen={isSplitViewOpen}
+          targetPanelPath={targetPanelPath}
+          onActionSuccess={() => {
+            onRefresh();
+            if (onOtherPanelRefresh) onOtherPanelRefresh();
+          }}
         />
       )}
     </div>

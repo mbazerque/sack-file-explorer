@@ -14,17 +14,20 @@ export function getParentPath(pathStr: string): string | null {
   return parent;
 }
 
-export function useNavigation() {
-  const { activeTab, updateActiveTab } = useTabContext();
+export function useNavigation(panelSide?: "left" | "right") {
+  const { activeTab, updatePanel } = useTabContext();
+  const side = panelSide || activeTab.activePanel;
+
+  const panel = side === "left" ? activeTab.leftPanel : activeTab.rightPanel;
 
   const [files, setFiles] = useState<FileItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const currentPath = activeTab.currentPath;
-  const history = activeTab.history;
-  const historyIndex = activeTab.historyIndex;
+  const currentPath = panel.currentPath;
+  const history = panel.history;
+  const historyIndex = panel.historyIndex;
 
   const fetchDirectory = useCallback(async (targetPath: string) => {
     setIsScanning(true);
@@ -42,7 +45,7 @@ export function useNavigation() {
     }
   }, []);
 
-  // Whenever active tab or currentPath changes, fetch directory
+  // Fetch directory whenever panel's currentPath or activeTab changes
   useEffect(() => {
     fetchDirectory(currentPath);
   }, [currentPath, activeTab.id, fetchDirectory]);
@@ -60,39 +63,39 @@ export function useNavigation() {
       newHistory.push(normalizedPath);
       const newIndex = historyIndex + 1;
 
-      updateActiveTab({
+      updatePanel(side, {
         currentPath: normalizedPath,
         history: newHistory,
         historyIndex: newIndex,
-        searchQuery: "", // Clear search query when navigating to new folder
+        searchQuery: "",
       });
     },
-    [history, historyIndex, updateActiveTab]
+    [history, historyIndex, side, updatePanel]
   );
 
   const goBack = useCallback(async () => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       const targetPath = history[newIndex];
-      updateActiveTab({
+      updatePanel(side, {
         currentPath: targetPath,
         historyIndex: newIndex,
         searchQuery: "",
       });
     }
-  }, [historyIndex, history, updateActiveTab]);
+  }, [historyIndex, history, side, updatePanel]);
 
   const goForward = useCallback(async () => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       const targetPath = history[newIndex];
-      updateActiveTab({
+      updatePanel(side, {
         currentPath: targetPath,
         historyIndex: newIndex,
         searchQuery: "",
       });
     }
-  }, [historyIndex, history, updateActiveTab]);
+  }, [historyIndex, history, side, updatePanel]);
 
   const goUp = useCallback(async () => {
     const parentPath = getParentPath(currentPath);

@@ -1,5 +1,5 @@
 ﻿import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
-import { Tab } from "../types/tab";
+import { Tab, PanelState } from "../types/tab";
 
 export function getTabTitle(path: string): string {
   const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -9,29 +9,41 @@ export function getTabTitle(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-interface TabContextType {
-  tabs: Tab[];
-  activeTabId: string;
-  activeTab: Tab;
-  createTab: (initialPath?: string) => void;
-  closeTab: (id: string) => void;
-  selectTab: (id: string) => void;
-  updateActiveTab: (updates: Partial<Tab>) => void;
-  nextTab: () => void;
-  previousTab: () => void;
-}
-
 const DEFAULT_INITIAL_PATH = "C:/";
 
-const initialTab: Tab = {
-  id: "tab-1",
-  title: getTabTitle(DEFAULT_INITIAL_PATH),
+const defaultPanelState: PanelState = {
   currentPath: DEFAULT_INITIAL_PATH,
   history: [DEFAULT_INITIAL_PATH],
   historyIndex: 0,
   searchQuery: "",
   isFuzzy: true,
 };
+
+const initialTab: Tab = {
+  id: "tab-1",
+  title: getTabTitle(DEFAULT_INITIAL_PATH),
+  isSplitViewOpen: false,
+  activePanel: "left",
+  leftPanel: { ...defaultPanelState },
+  rightPanel: { ...defaultPanelState },
+};
+
+interface TabContextType {
+  tabs: Tab[];
+  activeTabId: string;
+  activeTab: Tab;
+  activePanelState: PanelState;
+  otherPanelState: PanelState;
+  createTab: (initialPath?: string) => void;
+  closeTab: (id: string) => void;
+  selectTab: (id: string) => void;
+  toggleSplitView: () => void;
+  setActivePanel: (panel: "left" | "right") => void;
+  updateActivePanel: (updates: Partial<PanelState>) => void;
+  updatePanel: (panel: "left" | "right", updates: Partial<PanelState>) => void;
+  nextTab: () => void;
+  previousTab: () => void;
+}
 
 const TabContext = createContext<TabContextType | null>(null);
 
@@ -40,17 +52,25 @@ export function TabProvider({ children }: { children: ReactNode }) {
   const [activeTabId, setActiveTabId] = useState<string>(initialTab.id);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const activePanelState = activeTab.activePanel === "left" ? activeTab.leftPanel : activeTab.rightPanel;
+  const otherPanelState = activeTab.activePanel === "left" ? activeTab.rightPanel : activeTab.leftPanel;
 
   const createTab = useCallback((initialPath: string = DEFAULT_INITIAL_PATH) => {
     const newId = `tab-${Date.now()}`;
-    const newTab: Tab = {
-      id: newId,
-      title: getTabTitle(initialPath),
+    const newPanel: PanelState = {
       currentPath: initialPath,
       history: [initialPath],
       historyIndex: 0,
       searchQuery: "",
       isFuzzy: true,
+    };
+    const newTab: Tab = {
+      id: newId,
+      title: getTabTitle(initialPath),
+      isSplitViewOpen: false,
+      activePanel: "left",
+      leftPanel: { ...newPanel },
+      rightPanel: { ...newPanel },
     };
 
     setTabs((prev) => [...prev, newTab]);
@@ -60,7 +80,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
   const closeTab = useCallback(
     (id: string) => {
       setTabs((prev) => {
-        if (prev.length <= 1) return prev; // Keep at least one tab
+        if (prev.length <= 1) return prev;
 
         const targetIndex = prev.findIndex((t) => t.id === id);
         if (targetIndex === -1) return prev;
@@ -82,24 +102,71 @@ export function TabProvider({ children }: { children: ReactNode }) {
     setActiveTabId(id);
   }, []);
 
-  const updateActiveTab = useCallback(
-    (updates: Partial<Tab>) => {
+  const toggleSplitView = useCallback(() => {
+    setTabs((prev) =>
+      prev.map((t) => {
+        if (t.id !== activeTabId) return t;
+
+        const nextSplitState = !t.isSplitViewOpen;
+        // If turning on split view, sync right panel path with left panel if right is unchanged
+        const updatedRight = {
+          ...t.rightPanel,
+          currentPath: nextSplitState && t.rightPanel.currentPath === DEFAULT_INITIAL_PATH ? t.leftPanel.currentPath : t.rightPanel.currentPath,
+          history: nextSplitState && t.rightPanel.currentPath === DEFAULT_INITIAL_PATH ? [...t.leftPanel.history] : t.rightPanel.history,
+        };
+
+        return {
+          ...t,
+          isSplitViewOpen: nextSplitState,
+          rightPanel: updatedRight,
+        };
+      })
+    );
+  }, [activeTabId]);
+
+  const setActivePanel = useCallback(
+    (panel: "left" | "right") => {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === activeTabId ? { ...t, activePanel: panel } : t))
+      );
+    },
+    [activeTabId]
+  );
+
+  const updatePanel = useCallback(
+    (panel: "left" | "right", updates: Partial<PanelState>) => {
       setTabs((prev) =>
         prev.map((tab) => {
           if (tab.id !== activeTabId) return tab;
 
-          const updatedPath = updates.currentPath ?? tab.currentPath;
-          const updatedTitle = updates.currentPath ? getTabTitle(updatedPath) : (updates.title ?? tab.title);
+          const targetPanel = panel === "left" ? tab.leftPanel : tab.rightPanel;
+          const updatedPanelState: PanelState = { ...targetPanel, ...updates };
+
+          const isLeftActive = tab.activePanel === "left";
+          const mainPath = isLeftActive
+            ? panel === "left"
+              ? updatedPanelState.currentPath
+              : tab.leftPanel.currentPath
+            : panel === "right"
+            ? updatedPanelState.currentPath
+            : tab.leftPanel.currentPath;
 
           return {
             ...tab,
-            ...updates,
-            title: updatedTitle,
+            title: getTabTitle(mainPath),
+            [panel === "left" ? "leftPanel" : "rightPanel"]: updatedPanelState,
           };
         })
       );
     },
     [activeTabId]
+  );
+
+  const updateActivePanel = useCallback(
+    (updates: Partial<PanelState>) => {
+      updatePanel(activeTab.activePanel, updates);
+    },
+    [activeTab.activePanel, updatePanel]
   );
 
   const nextTab = useCallback(() => {
@@ -122,11 +189,16 @@ export function TabProvider({ children }: { children: ReactNode }) {
     });
   }, [activeTabId]);
 
-  // Global Keyboard Shortcuts: Ctrl+T (New tab), Ctrl+W (Close tab), Ctrl+Tab (Next tab)
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+\: Toggle Split View
+      if ((e.ctrlKey || e.metaKey) && (e.key === "\\" || e.code === "Backslash")) {
+        e.preventDefault();
+        toggleSplitView();
+      }
       // Ctrl+T: New tab
-      if ((e.ctrlKey || e.metaKey) && (e.key === "t" || e.key === "T")) {
+      else if ((e.ctrlKey || e.metaKey) && (e.key === "t" || e.key === "T")) {
         e.preventDefault();
         createTab();
       }
@@ -150,7 +222,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [createTab, closeTab, activeTabId, tabs.length, nextTab, previousTab]);
+  }, [createTab, closeTab, activeTabId, tabs.length, nextTab, previousTab, toggleSplitView]);
 
   return (
     <TabContext.Provider
@@ -158,10 +230,15 @@ export function TabProvider({ children }: { children: ReactNode }) {
         tabs,
         activeTabId,
         activeTab,
+        activePanelState,
+        otherPanelState,
         createTab,
         closeTab,
         selectTab,
-        updateActiveTab,
+        toggleSplitView,
+        setActivePanel,
+        updateActivePanel,
+        updatePanel,
         nextTab,
         previousTab,
       }}

@@ -1,7 +1,8 @@
-mod search;
+﻿mod search;
 
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::path::Path;
 use std::time::UNIX_EPOCH;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -80,6 +81,53 @@ fn delete_item(path: String) -> Result<(), String> {
     Ok(())
 }
 
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let target_path = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_recursive(&entry.path(), &target_path)?;
+        } else {
+            fs::copy(entry.path(), target_path)?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn copy_item(src: String, dst_dir: String) -> Result<(), String> {
+    let src_path = Path::new(&src);
+    let file_name = src_path.file_name().ok_or("Invalid source filename")?;
+    let target = Path::new(&dst_dir).join(file_name);
+
+    if src_path.is_dir() {
+        copy_dir_recursive(src_path, &target).map_err(|e| format!("Failed to copy directory: {}", e))?;
+    } else {
+        fs::copy(src_path, target).map_err(|e| format!("Failed to copy file: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn move_item(src: String, dst_dir: String) -> Result<(), String> {
+    let src_path = Path::new(&src);
+    let file_name = src_path.file_name().ok_or("Invalid source filename")?;
+    let target = Path::new(&dst_dir).join(file_name);
+
+    if fs::rename(src_path, &target).is_err() {
+        if src_path.is_dir() {
+            copy_dir_recursive(src_path, &target).map_err(|e| format!("Failed to move directory: {}", e))?;
+            fs::remove_dir_all(src_path).map_err(|e| format!("Failed to delete original directory: {}", e))?;
+        } else {
+            fs::copy(src_path, &target).map_err(|e| format!("Failed to move file: {}", e))?;
+            fs::remove_file(src_path).map_err(|e| format!("Failed to delete original file: {}", e))?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -89,6 +137,8 @@ pub fn run() {
             scan_directory,
             open_in_terminal,
             delete_item,
+            copy_item,
+            move_item,
             search::search_files,
         ])
         .run(tauri::generate_context!())

@@ -3,12 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { FileInfo } from "../types/file";
 import { useTabContext } from "../context/TabContext";
 
-export function useSearch() {
-  const { activeTab, updateActiveTab } = useTabContext();
+export function useSearch(panelSide?: "left" | "right") {
+  const { activeTab, updatePanel } = useTabContext();
+  const side = panelSide || activeTab.activePanel;
 
-  const searchQuery = activeTab.searchQuery;
-  const useFuzzy = activeTab.isFuzzy;
-  const currentPath = activeTab.currentPath;
+  const panel = side === "left" ? activeTab.leftPanel : activeTab.rightPanel;
+
+  const searchQuery = panel.searchQuery;
+  const useFuzzy = panel.isFuzzy;
+  const currentPath = panel.currentPath;
 
   const [searchResults, setSearchResults] = useState<FileInfo[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -18,25 +21,25 @@ export function useSearch() {
 
   const setSearchQuery = useCallback(
     (query: string) => {
-      updateActiveTab({ searchQuery: query });
+      updatePanel(side, { searchQuery: query });
     },
-    [updateActiveTab]
+    [side, updatePanel]
   );
 
   const setUseFuzzy = useCallback(
     (useFuzzyVal: boolean | ((prev: boolean) => boolean)) => {
       const nextVal = typeof useFuzzyVal === "function" ? useFuzzyVal(useFuzzy) : useFuzzyVal;
-      updateActiveTab({ isFuzzy: nextVal });
+      updatePanel(side, { isFuzzy: nextVal });
     },
-    [useFuzzy, updateActiveTab]
+    [useFuzzy, side, updatePanel]
   );
 
   const clearSearch = useCallback(() => {
-    updateActiveTab({ searchQuery: "" });
+    updatePanel(side, { searchQuery: "" });
     setSearchResults([]);
     setIsSearching(false);
     setSearchError(null);
-  }, [updateActiveTab]);
+  }, [side, updatePanel]);
 
   // Debounced search effect (~250ms)
   useEffect(() => {
@@ -76,11 +79,13 @@ export function useSearch() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F" || e.key === "p" || e.key === "P")) {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
+        if (side === activeTab.activePanel) {
+          e.preventDefault();
+          inputRef.current?.focus();
+          inputRef.current?.select();
+        }
       } else if (e.key === "Escape") {
-        if (searchQuery) {
+        if (searchQuery && side === activeTab.activePanel) {
           e.preventDefault();
           clearSearch();
         }
@@ -89,7 +94,7 @@ export function useSearch() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [searchQuery, clearSearch]);
+  }, [searchQuery, clearSearch, side, activeTab.activePanel]);
 
   return {
     searchQuery,

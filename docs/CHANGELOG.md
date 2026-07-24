@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Navegación en Vista Dividida / Panel Doble (Split View / Dual-pane)**:
+  - Soporte para vista dividida con dos paneles independientes de exploración (`leftPanel` y `rightPanel`) con navegación, búsqueda y selecciones aisladas.
+  - Indicador visual del panel activo con resaltado de borde sutil (`ring-1 ring-blue-500/50`) y cambio reactivo al hacer clic en cualquiera de los dos paneles.
+  - Botón "Split View" en la Navbar y atajo de teclado global `Ctrl + \` para alternar la vista dividida.
+  - Acciones entre paneles en el Menú Contextual (clic derecho) con iconos Lucide:
+    - **Copiar al otro panel** (`ArrowRight`): Copia archivos/carpetas directamente al directorio activo del otro panel mediante comando nativo de Rust `copy_item`.
+    - **Mover al otro panel** (`MoveRight`): Mueve archivos/carpetas directamente al directorio activo del otro panel mediante comando nativo de Rust `move_item`.
+
 ## [v0.2.0] - 2026-07-24
 
 ### Added

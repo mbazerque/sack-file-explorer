@@ -17,6 +17,7 @@ export function TabBar() {
       <div className="flex items-center gap-1 min-w-0 max-w-full">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
+          const currentPath = tab.activePanel === "left" ? tab.leftPanel.currentPath : tab.rightPanel.currentPath;
 
           return (
             <div
@@ -28,7 +29,7 @@ export function TabBar() {
                   : "bg-gray-950/60 border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/40"
               }`}
             >
-              {getTabIcon(tab.currentPath)}
+              {getTabIcon(currentPath)}
               <span className="truncate flex-1 font-sans">{tab.title}</span>
 
               {tabs.length > 1 && (

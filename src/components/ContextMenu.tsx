@@ -1,15 +1,21 @@
-import { useEffect, useRef } from "react";
-import { Copy, Terminal, Trash2 } from "lucide-react";
+﻿import { useEffect, useRef } from "react";
+import { Copy, Terminal, Trash2, ArrowRight, MoveRight } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { FileItem } from "../types/file";
+import { FileItem, FileInfo } from "../types/file";
+
+export type ListItem = FileItem | FileInfo;
 
 interface ContextMenuProps {
   x: number;
   y: number;
-  item: FileItem;
+  item: ListItem;
   currentPath: string;
   onClose: () => void;
   onDeleteSuccess: () => void;
+  // Dual-pane / Split view props
+  isSplitViewOpen?: boolean;
+  targetPanelPath?: string;
+  onActionSuccess?: () => void;
 }
 
 export function ContextMenu({
@@ -19,10 +25,16 @@ export function ContextMenu({
   currentPath,
   onClose,
   onDeleteSuccess,
+  isSplitViewOpen = false,
+  targetPanelPath,
+  onActionSuccess,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const fullPath = currentPath.endsWith("/") || currentPath.endsWith("\\")
+  const fileInfo = item as Partial<FileInfo>;
+  const fullPath = fileInfo.path
+    ? fileInfo.path
+    : currentPath.endsWith("/") || currentPath.endsWith("\\")
     ? `${currentPath}${item.name}`
     : `${currentPath}/${item.name}`;
 
@@ -80,11 +92,33 @@ export function ContextMenu({
     onClose();
   };
 
+  const handleCopyToOtherPanel = async () => {
+    if (!targetPanelPath) return;
+    try {
+      await invoke("copy_item", { src: fullPath, dstDir: targetPanelPath });
+      if (onActionSuccess) onActionSuccess();
+    } catch (err) {
+      alert(`Error al copiar al otro panel: ${String(err)}`);
+    }
+    onClose();
+  };
+
+  const handleMoveToOtherPanel = async () => {
+    if (!targetPanelPath) return;
+    try {
+      await invoke("move_item", { src: fullPath, dstDir: targetPanelPath });
+      if (onActionSuccess) onActionSuccess();
+    } catch (err) {
+      alert(`Error al mover al otro panel: ${String(err)}`);
+    }
+    onClose();
+  };
+
   // Adjust coordinates if menu overflows window
   const windowWidth = window.innerWidth;
   const windowHeight = window.innerHeight;
-  const menuWidth = 200;
-  const menuHeight = 120;
+  const menuWidth = 220;
+  const menuHeight = isSplitViewOpen ? 210 : 130;
 
   const adjustedX = x + menuWidth > windowWidth ? windowWidth - menuWidth - 10 : x;
   const adjustedY = y + menuHeight > windowHeight ? windowHeight - menuHeight - 10 : y;
@@ -93,7 +127,7 @@ export function ContextMenu({
     <div
       ref={menuRef}
       style={{ top: `${adjustedY}px`, left: `${adjustedX}px` }}
-      className="fixed z-50 w-52 bg-gray-900 border border-gray-700/80 rounded-xl shadow-2xl py-1.5 text-sm text-gray-200 select-none animate-in fade-in zoom-in-95 duration-100"
+      className="fixed z-50 w-56 bg-gray-900 border border-gray-700/80 rounded-xl shadow-2xl py-1.5 text-sm text-gray-200 select-none animate-in fade-in zoom-in-95 duration-100"
     >
       <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-800 truncate">
         {item.name}
@@ -117,6 +151,29 @@ export function ContextMenu({
           <Terminal className="w-4 h-4 text-cyan-400" />
           <span>Abrir en terminal</span>
         </button>
+
+        {isSplitViewOpen && targetPanelPath && (
+          <>
+            <div className="my-1 border-t border-gray-800" />
+            <button
+              type="button"
+              onClick={handleCopyToOtherPanel}
+              className="w-full px-3 py-1.5 text-left hover:bg-indigo-600/20 hover:text-indigo-300 flex items-center gap-2.5 transition-colors"
+            >
+              <ArrowRight className="w-4 h-4 text-indigo-400" />
+              <span>Copiar al otro panel</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleMoveToOtherPanel}
+              className="w-full px-3 py-1.5 text-left hover:bg-amber-600/20 hover:text-amber-300 flex items-center gap-2.5 transition-colors"
+            >
+              <MoveRight className="w-4 h-4 text-amber-400" />
+              <span>Mover al otro panel</span>
+            </button>
+          </>
+        )}
 
         <div className="my-1 border-t border-gray-800" />
 
