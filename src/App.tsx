@@ -1,6 +1,7 @@
 ﻿import { useEffect } from "react";
 import { useNavigation } from "./hooks/useNavigation";
 import { useSearch } from "./hooks/useSearch";
+import { TabBar } from "./components/TabBar";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
 import { FileList } from "./components/FileList";
@@ -23,15 +24,9 @@ function App() {
     goForward,
     goUp,
     refresh,
-    fetchDirectory,
-  } = useNavigation("C:/");
+  } = useNavigation();
 
-  const search = useSearch(currentPath);
-
-  useEffect(() => {
-    fetchDirectory(currentPath);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const search = useSearch();
 
   // Keyboard shortcuts: Backspace (go back) and F5 (refresh)
   useEffect(() => {
@@ -64,6 +59,8 @@ function App() {
       <Sidebar onNavigate={(p) => { search.clearSearch(); scanPath(p); }} currentPath={currentPath} />
 
       <div className="flex-1 flex flex-col min-w-0">
+        <TabBar />
+
         <div className="p-4 border-b border-gray-800 bg-gray-900 z-10 shadow-sm">
           <Navbar
             currentPath={currentPath}

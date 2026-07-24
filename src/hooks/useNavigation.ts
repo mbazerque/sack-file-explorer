@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+﻿import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileItem } from "../types/file";
+import { useTabContext } from "../context/TabContext";
 
 export function getParentPath(pathStr: string): string | null {
   const normalized = pathStr.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -13,16 +14,17 @@ export function getParentPath(pathStr: string): string | null {
   return parent;
 }
 
-export function useNavigation(initialPath: string = "C:/") {
-  const [history, setHistory] = useState<string[]>([initialPath]);
-  const [historyIndex, setHistoryIndex] = useState<number>(0);
-  
+export function useNavigation() {
+  const { activeTab, updateActiveTab } = useTabContext();
+
   const [files, setFiles] = useState<FileItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const currentPath = history[historyIndex] || initialPath;
+  const currentPath = activeTab.currentPath;
+  const history = activeTab.history;
+  const historyIndex = activeTab.historyIndex;
 
   const fetchDirectory = useCallback(async (targetPath: string) => {
     setIsScanning(true);
@@ -32,13 +34,18 @@ export function useNavigation(initialPath: string = "C:/") {
       const result = await invoke<FileItem[]>("scan_directory", { path: targetPath });
       setFiles(result);
     } catch (err) {
-      console.error(err);
+      console.error("scan_directory error:", err);
       setErrorMsg(String(err));
       setFiles([]);
     } finally {
       setIsScanning(false);
     }
   }, []);
+
+  // Whenever active tab or currentPath changes, fetch directory
+  useEffect(() => {
+    fetchDirectory(currentPath);
+  }, [currentPath, activeTab.id, fetchDirectory]);
 
   const refresh = useCallback(async () => {
     await fetchDirectory(currentPath);
@@ -49,34 +56,43 @@ export function useNavigation(initialPath: string = "C:/") {
       if (!targetPath.trim()) return;
       const normalizedPath = targetPath.replace(/\\/g, "/");
 
-      setHistory((prevHistory) => {
-        const newHistory = prevHistory.slice(0, historyIndex + 1);
-        newHistory.push(normalizedPath);
-        return newHistory;
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(normalizedPath);
+      const newIndex = historyIndex + 1;
+
+      updateActiveTab({
+        currentPath: normalizedPath,
+        history: newHistory,
+        historyIndex: newIndex,
+        searchQuery: "", // Clear search query when navigating to new folder
       });
-      setHistoryIndex((prevIndex) => prevIndex + 1);
-      await fetchDirectory(normalizedPath);
     },
-    [historyIndex, fetchDirectory]
+    [history, historyIndex, updateActiveTab]
   );
 
   const goBack = useCallback(async () => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
       const targetPath = history[newIndex];
-      await fetchDirectory(targetPath);
+      updateActiveTab({
+        currentPath: targetPath,
+        historyIndex: newIndex,
+        searchQuery: "",
+      });
     }
-  }, [historyIndex, history, fetchDirectory]);
+  }, [historyIndex, history, updateActiveTab]);
 
   const goForward = useCallback(async () => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
       const targetPath = history[newIndex];
-      await fetchDirectory(targetPath);
+      updateActiveTab({
+        currentPath: targetPath,
+        historyIndex: newIndex,
+        searchQuery: "",
+      });
     }
-  }, [historyIndex, history, fetchDirectory]);
+  }, [historyIndex, history, updateActiveTab]);
 
   const goUp = useCallback(async () => {
     const parentPath = getParentPath(currentPath);

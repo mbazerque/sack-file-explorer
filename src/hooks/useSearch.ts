@@ -1,22 +1,42 @@
 ﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileInfo } from "../types/file";
+import { useTabContext } from "../context/TabContext";
 
-export function useSearch(currentPath: string) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [useFuzzy, setUseFuzzy] = useState(true);
+export function useSearch() {
+  const { activeTab, updateActiveTab } = useTabContext();
+
+  const searchQuery = activeTab.searchQuery;
+  const useFuzzy = activeTab.isFuzzy;
+  const currentPath = activeTab.currentPath;
+
   const [searchResults, setSearchResults] = useState<FileInfo[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const setSearchQuery = useCallback(
+    (query: string) => {
+      updateActiveTab({ searchQuery: query });
+    },
+    [updateActiveTab]
+  );
+
+  const setUseFuzzy = useCallback(
+    (useFuzzyVal: boolean | ((prev: boolean) => boolean)) => {
+      const nextVal = typeof useFuzzyVal === "function" ? useFuzzyVal(useFuzzy) : useFuzzyVal;
+      updateActiveTab({ isFuzzy: nextVal });
+    },
+    [useFuzzy, updateActiveTab]
+  );
+
   const clearSearch = useCallback(() => {
-    setSearchQuery("");
+    updateActiveTab({ searchQuery: "" });
     setSearchResults([]);
     setIsSearching(false);
     setSearchError(null);
-  }, []);
+  }, [updateActiveTab]);
 
   // Debounced search effect (~250ms)
   useEffect(() => {
@@ -50,7 +70,7 @@ export function useSearch(currentPath: string) {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, useFuzzy, currentPath]);
+  }, [searchQuery, useFuzzy, currentPath, activeTab.id]);
 
   // Global keyboard shortcuts: Ctrl+F, Ctrl+P to focus search input, Esc to clear search
   useEffect(() => {

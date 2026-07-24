@@ -13,7 +13,7 @@ This document outlines the planned features and milestones for the File Explorer
 - [x] Fixed status footer with total item counters and selected item state.
 
 ## Phase 2: Multi-Tabs & Accelerated Search
-- [ ] **Multi-Tab System**: Support multiple directory tabs in the top bar with drag-and-drop / tab switching.
+- [x] **Multi-Tab System**: Support multiple directory tabs in the top bar with isolated tab state, `TabBar.tsx` UI, and keyboard shortcuts (`Ctrl+T`, `Ctrl+W`, `Ctrl+Tab`).
 - [x] **Async Rust Search**: Real-time asynchronous directory search powered by Rust thread pools (`ignore` crate + fuzzy matching + UI debounce + `Ctrl+F` / `Ctrl+P`).
 - [ ] **Virtual Scrolling**: Virtualized list rendering for directories with 10,000+ files without UI lag.
 

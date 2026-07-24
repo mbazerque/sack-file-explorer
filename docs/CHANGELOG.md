@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Sistema de Navegación Multi-Pestañas (`TabContext` & `TabBar`)**:
+  - Contexto de pestañas con estado aislado por pestaña (`currentPath`, `history`, `historyIndex`, `searchQuery`, `isFuzzy`).
+  - Barra de pestañas (`TabBar.tsx`) con diseño prolijo estilo browser, iconos representativos según tipo de directorio, títulos dinámicos y botón `+` para crear nuevas pestañas.
+  - Botón de cierre `x` para cerrar pestañas individuales (visible cuando hay más de una pestaña activa).
+  - Atajos globales de teclado: `Ctrl+T` (crear nueva pestaña), `Ctrl+W` (cerrar pestaña activa) y `Ctrl+Tab` / `Ctrl+Shift+Tab` (ciclar entre pestañas).
 - **Motor de Búsqueda Ultra-Rápido en Rust (`search_files`)**:
   - Algoritmo multi-hilo respaldado por `ignore::WalkBuilder` con filtrado inteligente de `.gitignore`, `.ignore`, `.git/info/exclude` y carpetas de desarrollo (`node_modules`, `target`, `dist`, `.next`, etc.).
   - Poda temprana de directorios ignorados y soporte de Fuzzy Search con algoritmo custom de scoring por coincidencias fragmentadas/secuenciales.
