@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-07-24
+
 ### Added
 - **Sistema de Navegación Multi-Pestañas (`TabContext` & `TabBar`)**:
   - Contexto de pestañas con estado aislado por pestaña (`currentPath`, `history`, `historyIndex`, `searchQuery`, `isFuzzy`).
