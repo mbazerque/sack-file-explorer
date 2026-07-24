@@ -57,7 +57,7 @@ export function Footer({ files, selectedItem, isScanning }: FooterProps) {
       </div>
 
       <div className="text-gray-500 font-mono text-[11px]">
-        File Explorer v0.1.0
+        Sack v0.2.0
       </div>
     </footer>
   );

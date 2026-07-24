@@ -1,6 +1,6 @@
 ﻿# Roadmap
 
-This document outlines the planned features and milestones for the File Explorer project.
+This document outlines the planned features and milestones for the Sack project.
 
 ## Phase 1: Core UI Base & Navigation [COMPLETED]
 - [x] Implement real file system traversal in Rust (`scan_directory` returning `FileItem` objects).

@@ -2,12 +2,12 @@
 
 # Architecture & Technical Design
 
-This document details the software architecture of **File Explorer**, explaining the folder structure, component modularity, state management, and native Rust IPC integration.
+This document details the software architecture of **Sack**, explaining the folder structure, component modularity, state management, and native Rust IPC integration.
 
 ## Project Structure
 
 ```text
-file-explorer/
+sack/
 ├── docs/                      # Architectural documentation, Roadmap, and Changelog
 ├── src/                       # React 19 + TypeScript Frontend
 │   ├── components/            # Modularized UI Components

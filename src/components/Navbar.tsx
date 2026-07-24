@@ -72,7 +72,7 @@ export function Navbar({
             <Search className="w-5 h-5" />
           </div>
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
-            File Explorer
+            Sack
           </h1>
         </div>
 

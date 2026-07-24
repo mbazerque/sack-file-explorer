@@ -1,4 +1,4 @@
-# Sack File Explorer
+# Sack
 
 Fast, modern desktop file explorer built with Tauri v2, Rust, and React.
 
@@ -44,8 +44,8 @@ Fast, modern desktop file explorer built with Tauri v2, Rust, and React.
 ### Installation
 
 ```bash
-git clone https://github.com/tu-usuario/file-explorer.git
-cd file-explorer
+git clone https://github.com/mbazerque/sack-file-explorer.git
+cd sack-file-explorer
 npm install
 npm run tauri dev
 ```
