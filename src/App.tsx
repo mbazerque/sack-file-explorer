@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigation } from "./hooks/useNavigation";
 import { useSearch } from "./hooks/useSearch";
 import { useTabContext } from "./context/TabContext";
@@ -51,17 +51,19 @@ function App() {
   const activeScanning = activeSearch.isSearchActive ? activeSearch.isSearching : activeNav.isScanning;
 
   return (
-    <div className="h-screen w-screen bg-gray-950 text-gray-100 flex overflow-hidden font-sans">
-      <Sidebar
-        onNavigate={(p) => {
-          activeSearch.clearSearch();
-          activeNav.scanPath(p);
-        }}
-        currentPath={activeNav.currentPath}
-      />
+    <div className="h-screen w-screen bg-gray-950 text-gray-100 flex flex-col overflow-hidden font-sans">
+      <TabBar />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <TabBar />
+      <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+        <Sidebar
+          onNavigate={(p) => {
+            activeSearch.clearSearch();
+            activeNav.scanPath(p);
+          }}
+          currentPath={activeNav.currentPath}
+        />
+
+        <div className="flex-1 flex flex-col min-w-0">
 
         <div className="p-4 border-b border-gray-800 bg-gray-900 z-10 shadow-sm">
           <Navbar
@@ -175,7 +177,8 @@ function App() {
         <Footer files={activeFiles} selectedItem={activeNav.selectedItem} isScanning={activeScanning} />
       </div>
     </div>
-  );
+  </div>
+);
 }
 
 export default App;

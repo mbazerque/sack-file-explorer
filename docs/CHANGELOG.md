@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Formateo de fecha de modificación compacto (DD/MM/YY HH:mm) con prevención de saltos de línea (`whitespace-nowrap`) para mejorar el uso del espacio horizontal.
 
 ### Added
+- **Barra de Título Personalizada integrada con Pestañas (Custom Titlebar)**:
+  - Eliminada la barra de título nativa de Windows (`decorations: false` en `tauri.conf.json`).
+  - Integrada la barra de pestañas (`TabBar`) en la parte superior de la ventana ocupando todo el ancho.
+  - Habilitada la región de arrastre (`data-tauri-drag-region`) en el contenedor principal de la barra de pestañas para permitir arrastrar y mover la ventana desde los espacios vacíos.
+  - Implementado el componente `WindowControls` con botones nativos para Minimizar (`appWindow.minimize()`), Maximizar/Restaurar (`appWindow.toggleMaximize()`) y Cerrar (`appWindow.close()`) ubicados en la extrema derecha.
+  - Configurado `data-tauri-drag-region="false"` y manejo de eventos en pestañas y botones para evitar que las interacciones del usuario arrastren la ventana.
 - **Vista Previa Rápida (Quick Preview Modal - Tecla Espacio)**:
   - Modal flotante con desenfoque de fondo (`backdrop-blur`) activado mediante la barra espaciadora (`Espacio`) sobre el archivo seleccionado.
   - Renderizado dinámico de archivos de texto/código (`.txt`, `.md`, `.json`, `.ts`, `.tsx`, `.rs`, `.css`, `.html`, `.env`, etc.) mediante comando nativo de Rust `read_file_content` con bloque `<pre><code>` y scroll independiente.

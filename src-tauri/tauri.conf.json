@@ -13,8 +13,11 @@
     "windows": [
       {
         "title": "Sack",
-        "width": 800,
-        "height": 600
+        "width": 1000,
+        "height": 660,
+        "minWidth": 600,
+        "minHeight": 400,
+        "decorations": false
       }
     ],
     "security": {
