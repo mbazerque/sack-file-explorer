@@ -7,7 +7,13 @@ This document details the architecture of the File Explorer, explaining folder s
 ## Folder Structure
 
 - `/src`: Contains the React/TypeScript frontend.
-  - `App.tsx`: Main UI component, handles the layout and search inputs.
+  - `/components`: Clean and independent UI components.
+    - `Navbar.tsx`: Smart address bar, navigation buttons, search input.
+    - `Sidebar.tsx`: Quick access to favorite locations and drives.
+    - `FileList.tsx`: Renders the grid/list of files and folders.
+  - `/hooks`: Custom React hooks.
+    - `useNavigation.ts`: Centralizes the state of the current path, file listing, error handling, and scanning logic.
+  - `App.tsx`: Main UI entry point that integrates the layout components.
   - `App.css`: Main stylesheet containing Tailwind CSS directives.
 - `/src-tauri`: Contains the Rust backend for the Tauri application.
   - `src/lib.rs`: The core Tauri backend logic, including all exposed Rust commands (e.g., `scan_directory`).

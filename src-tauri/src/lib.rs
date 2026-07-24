@@ -1,11 +1,22 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+use std::fs;
+
 #[tauri::command]
-fn scan_directory(path: String) -> Vec<String> {
-    vec![
-        format!("{}/dummy_file_1.txt", path),
-        format!("{}/dummy_file_2.png", path),
-        format!("{}/dummy_folder", path),
-    ]
+fn scan_directory(path: String) -> Result<Vec<String>, String> {
+    let mut files = Vec::new();
+    match fs::read_dir(&path) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    if let Ok(file_name) = entry.file_name().into_string() {
+                        files.push(file_name);
+                    }
+                }
+            }
+            Ok(files)
+        }
+        Err(e) => Err(format!("Failed to read directory: {}", e)),
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
