@@ -1,9 +1,22 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- **Motor de Búsqueda Ultra-Rápido en Rust (`search_files`)**:
+  - Algoritmo multi-hilo respaldado por `ignore::WalkBuilder` con filtrado inteligente de `.gitignore`, `.ignore`, `.git/info/exclude` y carpetas de desarrollo (`node_modules`, `target`, `dist`, `.next`, etc.).
+  - Poda temprana de directorios ignorados y soporte de Fuzzy Search con algoritmo custom de scoring por coincidencias fragmentadas/secuenciales.
+  - Límite de seguridad de 150 resultados para evitar sobrecargar la memoria y el canal IPC de Tauri v2.
+- **UI de Búsqueda Interactiva (React + Tailwind)**:
+  - Barra de búsqueda integrada en el Navbar con debounce automático de ~250ms.
+  - Atajos de teclado globales `Ctrl+F` / `Ctrl+P` para enfocar la barra de búsqueda y `Esc` para cancelar y limpiar la búsqueda.
+  - Toggle UI para cambiar dinámicamente entre **Fuzzy Search** y **Búsqueda Exacta (Substring)**.
+  - Tabla de resultados adaptativa con columna de **Ruta Relativa** (`relative_path`), indicador de **Relevancia** (`score`) y estado de carga optimizado.
 
 ## [v0.1.0] - 2026-07-24
 

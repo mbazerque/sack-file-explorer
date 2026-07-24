@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { useNavigation } from "./hooks/useNavigation";
+import { useSearch } from "./hooks/useSearch";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
 import { FileList } from "./components/FileList";
@@ -24,6 +25,8 @@ function App() {
     refresh,
     fetchDirectory,
   } = useNavigation("C:/");
+
+  const search = useSearch(currentPath);
 
   useEffect(() => {
     fetchDirectory(currentPath);
@@ -53,9 +56,12 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [canGoBack, goBack, refresh]);
 
+  const activeFiles = search.isSearchActive ? search.searchResults : files;
+  const activeScanning = search.isSearchActive ? search.isSearching : isScanning;
+
   return (
     <div className="h-screen w-screen bg-gray-950 text-gray-100 flex overflow-hidden font-sans">
-      <Sidebar onNavigate={scanPath} currentPath={currentPath} />
+      <Sidebar onNavigate={(p) => { search.clearSearch(); scanPath(p); }} currentPath={currentPath} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="p-4 border-b border-gray-800 bg-gray-900 z-10 shadow-sm">
@@ -65,27 +71,52 @@ function App() {
             canGoBack={canGoBack}
             canGoForward={canGoForward}
             canGoUp={canGoUp}
-            onNavigate={scanPath}
-            onGoBack={goBack}
-            onGoForward={goForward}
-            onGoUp={goUp}
+            onNavigate={(path) => {
+              search.clearSearch();
+              scanPath(path);
+            }}
+            onGoBack={() => {
+              search.clearSearch();
+              goBack();
+            }}
+            onGoForward={() => {
+              search.clearSearch();
+              goForward();
+            }}
+            onGoUp={() => {
+              search.clearSearch();
+              goUp();
+            }}
+            searchQuery={search.searchQuery}
+            onSearchChange={search.setSearchQuery}
+            useFuzzy={search.useFuzzy}
+            onToggleFuzzy={() => search.setUseFuzzy((prev) => !prev)}
+            isSearching={search.isSearching}
+            onClearSearch={search.clearSearch}
+            searchInputRef={search.inputRef}
           />
         </div>
 
         <main className="flex-1 overflow-y-auto bg-gray-950 relative">
           <FileList
-            files={files}
-            isScanning={isScanning}
-            errorMsg={errorMsg}
+            files={activeFiles}
+            isScanning={activeScanning}
+            errorMsg={search.isSearchActive ? search.searchError : errorMsg}
             selectedItem={selectedItem}
             onSelectItem={setSelectedItem}
-            onNavigate={scanPath}
+            onNavigate={(path) => {
+              search.clearSearch();
+              scanPath(path);
+            }}
             onRefresh={refresh}
             currentPath={currentPath}
+            isSearchMode={search.isSearchActive}
+            searchQuery={search.searchQuery}
+            useFuzzy={search.useFuzzy}
           />
         </main>
 
-        <Footer files={files} selectedItem={selectedItem} isScanning={isScanning} />
+        <Footer files={activeFiles} selectedItem={selectedItem} isScanning={activeScanning} />
       </div>
     </div>
   );

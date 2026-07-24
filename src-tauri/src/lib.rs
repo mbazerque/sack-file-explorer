@@ -1,3 +1,5 @@
+mod search;
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::time::UNIX_EPOCH;
@@ -86,7 +88,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             scan_directory,
             open_in_terminal,
-            delete_item
+            delete_item,
+            search::search_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

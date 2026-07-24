@@ -24,3 +24,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-dialog = "2"
 
+# ── Motor de búsqueda de archivos ────────────────────────────────────────────
+# Walker recursivo que respeta .gitignore con soporte de paralelismo real
+ignore = "0.4"
+# Paralelismo de datos para sort paralelo y colecciones
+rayon = "1.10"
+# Runtime async requerido por Tauri; spawn_blocking para tareas intensivas
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+# Detección automática de núcleos de CPU para configurar los threads del walker
+num_cpus = "1.16"
+

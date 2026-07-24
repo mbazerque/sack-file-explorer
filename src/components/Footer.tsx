@@ -1,8 +1,10 @@
-import { FileItem } from "../types/file";
+﻿import { FileItem, FileInfo } from "../types/file";
+
+export type ListItem = FileItem | FileInfo;
 
 interface FooterProps {
-  files: FileItem[];
-  selectedItem: FileItem | null;
+  files: ListItem[];
+  selectedItem: ListItem | null;
   isScanning: boolean;
 }
 
@@ -26,7 +28,7 @@ export function Footer({ files, selectedItem, isScanning }: FooterProps) {
         {isScanning ? (
           <span className="flex items-center gap-2 text-blue-400">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
-            Cargando contenido...
+            Escaneando archivos...
           </span>
         ) : (
           <div className="flex items-center gap-3">

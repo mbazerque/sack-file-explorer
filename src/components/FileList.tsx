@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import {
   Folder,
   File,
@@ -13,22 +13,30 @@ import {
   FolderOpen,
   ArrowUp,
   ArrowDown,
+  Search,
+  Zap,
 } from "lucide-react";
-import { FileItem } from "../types/file";
+import { FileItem, FileInfo } from "../types/file";
 import { ContextMenu } from "./ContextMenu";
 
+export type ListItem = FileItem | FileInfo;
+
 interface FileListProps {
-  files: FileItem[];
+  files: ListItem[];
   isScanning: boolean;
   errorMsg: string | null;
-  selectedItem: FileItem | null;
-  onSelectItem: (item: FileItem | null) => void;
+  selectedItem: ListItem | null;
+  onSelectItem: (item: ListItem | null) => void;
   onNavigate: (path: string) => void;
   onRefresh: () => void;
   currentPath: string;
+  // Fast Search Props
+  isSearchMode?: boolean;
+  searchQuery?: string;
+  useFuzzy?: boolean;
 }
 
-type SortColumn = "name" | "modified_at" | "type" | "size";
+type SortColumn = "name" | "modified_at" | "type" | "size" | "relative_path" | "score";
 type SortDirection = "asc" | "desc";
 
 function getFileExtension(filename: string): string {
@@ -36,7 +44,7 @@ function getFileExtension(filename: string): string {
   return parts.length > 1 ? parts.pop()!.toLowerCase() : "";
 }
 
-function getFileTypeLabel(item: FileItem): string {
+function getFileTypeLabel(item: ListItem): string {
   if (item.is_dir) return "Carpeta de archivos";
   const ext = getFileExtension(item.name);
   if (!ext) return "Archivo";
@@ -64,7 +72,7 @@ function formatDate(timestamp: number | null): string {
   });
 }
 
-function renderFileIcon(item: FileItem) {
+function renderFileIcon(item: ListItem) {
   if (item.is_dir) {
     return <Folder className="w-4 h-4 text-amber-400 shrink-0" />;
   }
@@ -136,13 +144,20 @@ export function FileList({
   onNavigate,
   onRefresh,
   currentPath,
+  isSearchMode = false,
+  searchQuery = "",
+  useFuzzy = true,
 }: FileListProps) {
-  const [sortColumn, setSortColumn] = useState<SortColumn>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortColumn, setSortColumn] = useState<SortColumn>(
+    isSearchMode && useFuzzy ? "score" : "name"
+  );
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    isSearchMode && useFuzzy ? "desc" : "asc"
+  );
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    item: FileItem;
+    item: ListItem;
   } | null>(null);
 
   const handleHeaderClick = (column: SortColumn) => {
@@ -150,19 +165,31 @@ export function FileList({
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortColumn(column);
-      setSortDirection("asc");
+      // Default score column to desc, others to asc
+      setSortDirection(column === "score" ? "desc" : "asc");
     }
   };
 
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
-      // Folders always on top
-      if (a.is_dir !== b.is_dir) {
+      // In normal mode, folders always on top. In search mode with fuzzy, sort strictly by score or selected column.
+      if (!isSearchMode && a.is_dir !== b.is_dir) {
         return a.is_dir ? -1 : 1;
       }
 
+      const fileInfoA = a as Partial<FileInfo>;
+      const fileInfoB = b as Partial<FileInfo>;
+
       let cmp = 0;
-      if (sortColumn === "name") {
+      if (sortColumn === "score") {
+        const scoreA = fileInfoA.score ?? 0;
+        const scoreB = fileInfoB.score ?? 0;
+        cmp = scoreA - scoreB;
+      } else if (sortColumn === "relative_path") {
+        const pathA = fileInfoA.relative_path || a.name;
+        const pathB = fileInfoB.relative_path || b.name;
+        cmp = pathA.localeCompare(pathB, undefined, { numeric: true, sensitivity: "base" });
+      } else if (sortColumn === "name") {
         cmp = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
       } else if (sortColumn === "modified_at") {
         const timeA = a.modified_at || 0;
@@ -178,15 +205,20 @@ export function FileList({
 
       return sortDirection === "asc" ? cmp : -cmp;
     });
-  }, [files, sortColumn, sortDirection]);
+  }, [files, sortColumn, sortDirection, isSearchMode]);
 
-  const handleRowClick = (item: FileItem, e: React.MouseEvent) => {
+  const handleRowClick = (item: ListItem, e: React.MouseEvent) => {
     e.stopPropagation();
     onSelectItem(item);
   };
 
-  const handleRowDoubleClick = (item: FileItem) => {
-    if (item.is_dir) {
+  const handleRowDoubleClick = (item: ListItem) => {
+    const fileInfo = item as Partial<FileInfo>;
+    if (fileInfo.path) {
+      if (item.is_dir) {
+        onNavigate(fileInfo.path);
+      }
+    } else if (item.is_dir) {
       const base = currentPath.endsWith("/") || currentPath.endsWith("\\")
         ? currentPath
         : `${currentPath}/`;
@@ -194,7 +226,7 @@ export function FileList({
     }
   };
 
-  const handleContextMenu = (item: FileItem, e: React.MouseEvent) => {
+  const handleContextMenu = (item: ListItem, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onSelectItem(item);
@@ -233,15 +265,15 @@ export function FileList({
       <div className="p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm text-blue-400 animate-pulse mb-4">
           <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-          <span>Obteniendo archivos del sistema...</span>
+          <span>{isSearchMode ? "Buscando archivos con motor de Rust..." : "Obteniendo archivos del sistema..."}</span>
         </div>
 
         <div className="w-full bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-inner">
           <div className="border-b border-gray-800 bg-gray-900/80 px-4 py-3 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            <span className="col-span-6">Nombre</span>
-            <span className="col-span-3">Última modificación</span>
-            <span className="col-span-2">Tipo</span>
-            <span className="col-span-1 text-right">Tamaño</span>
+            <span className="col-span-5">Nombre</span>
+            <span className="col-span-3">Ruta Relativa</span>
+            <span className="col-span-2">Última modificación</span>
+            <span className="col-span-2 text-right">Tamaño</span>
           </div>
 
           <div className="divide-y divide-gray-800/60">
@@ -250,13 +282,13 @@ export function FileList({
                 key={idx}
                 className="px-4 py-3 grid grid-cols-12 gap-4 items-center animate-pulse"
               >
-                <div className="col-span-6 flex items-center gap-3">
+                <div className="col-span-5 flex items-center gap-3">
                   <div className="w-4 h-4 bg-gray-700/80 rounded" />
                   <div className="h-4 bg-gray-700/80 rounded w-1/2" />
                 </div>
-                <div className="col-span-3 h-4 bg-gray-800/80 rounded w-2/3" />
-                <div className="col-span-2 h-4 bg-gray-800/80 rounded w-3/4" />
-                <div className="col-span-1 h-4 bg-gray-800/80 rounded w-full ml-auto" />
+                <div className="col-span-3 h-4 bg-gray-800/80 rounded w-3/4" />
+                <div className="col-span-2 h-4 bg-gray-800/80 rounded w-2/3" />
+                <div className="col-span-2 h-4 bg-gray-800/80 rounded w-full ml-auto" />
               </div>
             ))}
           </div>
@@ -272,47 +304,93 @@ export function FileList({
         onClick={() => onSelectItem(null)}
       >
         <div className="w-16 h-16 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center mb-4 text-gray-500 shadow-inner">
-          <FolderOpen className="w-8 h-8" />
+          {isSearchMode ? <Search className="w-8 h-8 text-blue-400" /> : <FolderOpen className="w-8 h-8" />}
         </div>
-        <h3 className="text-base font-medium text-gray-300">Carpeta vacía</h3>
-        <p className="text-sm text-gray-500 mt-1">No hay archivos ni subcarpetas para mostrar en esta ubicación.</p>
+        <h3 className="text-base font-medium text-gray-300">
+          {isSearchMode ? `Sin coincidencias para "${searchQuery}"` : "Carpeta vacía"}
+        </h3>
+        <p className="text-sm text-gray-500 mt-1 max-w-md text-center">
+          {isSearchMode
+            ? `No se encontraron archivos en "${currentPath}" que coincidan con la búsqueda. Intenta desactivar o activar Fuzzy Search.`
+            : "No hay archivos ni subcarpetas para mostrar en esta ubicación."}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="p-4" onClick={() => onSelectItem(null)}>
+      {isSearchMode && (
+        <div className="mb-3 flex items-center justify-between text-xs text-gray-400 px-1">
+          <span className="flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 text-blue-400" />
+            Mostrando <strong className="text-blue-300">{files.length}</strong> resultados para{" "}
+            <span className="font-mono text-gray-200 bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700">
+              "{searchQuery}"
+            </span>
+          </span>
+          <span className="text-gray-400 font-mono">Presioná <kbd className="px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">Esc</kbd> para volver</span>
+        </div>
+      )}
+
       <div className="w-full bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-lg">
         <table className="w-full text-left text-sm border-collapse select-none">
           <thead>
             <tr className="border-b border-gray-800 bg-gray-900/90 text-xs font-semibold text-gray-400 uppercase tracking-wider">
               <th
                 onClick={() => handleHeaderClick("name")}
-                className="py-3 px-4 w-[45%] cursor-pointer hover:text-white transition-colors"
+                className={`py-3 px-4 ${isSearchMode ? "w-[30%]" : "w-[45%]"} cursor-pointer hover:text-white transition-colors`}
               >
                 <div className="flex items-center">
                   <span>Nombre</span>
                   {renderSortIndicator("name")}
                 </div>
               </th>
+
+              {isSearchMode && (
+                <th
+                  onClick={() => handleHeaderClick("relative_path")}
+                  className="py-3 px-4 w-[30%] cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center">
+                    <span>Ruta Relativa</span>
+                    {renderSortIndicator("relative_path")}
+                  </div>
+                </th>
+              )}
+
+              {isSearchMode && useFuzzy && (
+                <th
+                  onClick={() => handleHeaderClick("score")}
+                  className="py-3 px-4 w-[10%] cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center">
+                    <span>Relevancia</span>
+                    {renderSortIndicator("score")}
+                  </div>
+                </th>
+              )}
+
               <th
                 onClick={() => handleHeaderClick("modified_at")}
-                className="py-3 px-4 w-[25%] cursor-pointer hover:text-white transition-colors"
+                className={`py-3 px-4 ${isSearchMode ? (useFuzzy ? "w-[15%]" : "w-[20%]") : "w-[25%]"} cursor-pointer hover:text-white transition-colors`}
               >
                 <div className="flex items-center">
                   <span>Última modificación</span>
                   {renderSortIndicator("modified_at")}
                 </div>
               </th>
+
               <th
                 onClick={() => handleHeaderClick("type")}
-                className="py-3 px-4 w-[18%] cursor-pointer hover:text-white transition-colors"
+                className={`py-3 px-4 ${isSearchMode ? "w-[15%]" : "w-[18%]"} cursor-pointer hover:text-white transition-colors`}
               >
                 <div className="flex items-center">
                   <span>Tipo</span>
                   {renderSortIndicator("type")}
                 </div>
               </th>
+
               <th
                 onClick={() => handleHeaderClick("size")}
                 className="py-3 px-4 w-[12%] text-right cursor-pointer hover:text-white transition-colors"
@@ -326,6 +404,7 @@ export function FileList({
           </thead>
           <tbody className="divide-y divide-gray-800/60 font-sans">
             {sortedFiles.map((item, index) => {
+              const fileInfo = item as Partial<FileInfo>;
               const isSelected = selectedItem?.name === item.name;
 
               return (
@@ -340,6 +419,7 @@ export function FileList({
                       : "hover:bg-gray-800/60"
                   }`}
                 >
+                  {/* Name column */}
                   <td className="py-2.5 px-4">
                     <div className="flex items-center gap-3">
                       {renderFileIcon(item)}
@@ -351,18 +431,40 @@ export function FileList({
                             ? "text-gray-100 font-medium"
                             : "text-gray-300"
                         }`}
-                        title={item.name}
+                        title={fileInfo.path || item.name}
                       >
                         {item.name}
                       </span>
                     </div>
                   </td>
+
+                  {/* Relative Path column (Search mode) */}
+                  {isSearchMode && (
+                    <td className="py-2.5 px-4 text-gray-400 text-xs font-mono truncate max-w-[200px]" title={fileInfo.relative_path}>
+                      {fileInfo.relative_path || "."}
+                    </td>
+                  )}
+
+                  {/* Relevance score column (Fuzzy search mode) */}
+                  {isSearchMode && useFuzzy && (
+                    <td className="py-2.5 px-4 text-xs font-mono">
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-indigo-300">
+                        {fileInfo.score ?? 0}
+                      </span>
+                    </td>
+                  )}
+
+                  {/* Modified date column */}
                   <td className="py-2.5 px-4 text-gray-400 text-xs font-mono">
                     {formatDate(item.modified_at)}
                   </td>
+
+                  {/* Type column */}
                   <td className="py-2.5 px-4 text-gray-400 text-xs">
                     {getFileTypeLabel(item)}
                   </td>
+
+                  {/* Size column */}
                   <td className="py-2.5 px-4 text-gray-400 text-xs font-mono text-right">
                     {formatFileSize(item.size, item.is_dir)}
                   </td>
