@@ -36,6 +36,79 @@ pub struct FileItem {
     pub modified_at: Option<u64>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DriveItem {
+    pub name: String,
+    pub path: String,
+    pub total_bytes: u64,
+    pub available_bytes: u64,
+}
+
+#[tauri::command]
+fn get_system_drives() -> Result<Vec<DriveItem>, String> {
+    let mut drives = Vec::new();
+    #[cfg(target_os = "windows")]
+    {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+
+        extern "system" {
+            fn GetDiskFreeSpaceExW(
+                lpDirectoryName: *const u16,
+                lpFreeBytesAvailableToCaller: *mut u64,
+                lpTotalNumberOfBytes: *mut u64,
+                lpTotalNumberOfFreeBytes: *mut u64,
+            ) -> i32;
+        }
+
+        for c in b'A'..=b'Z' {
+            let drive_letter = format!("{}:\\", c as char);
+            let path_obj = Path::new(&drive_letter);
+            if path_obj.exists() {
+                let wide: Vec<u16> = OsStr::new(&drive_letter)
+                    .encode_wide()
+                    .chain(std::iter::once(0))
+                    .collect();
+
+                let mut user_free_bytes: u64 = 0;
+                let mut total_bytes: u64 = 0;
+                let mut total_free_bytes: u64 = 0;
+
+                let (total, available) = unsafe {
+                    if GetDiskFreeSpaceExW(
+                        wide.as_ptr(),
+                        &mut user_free_bytes,
+                        &mut total_bytes,
+                        &mut total_free_bytes,
+                    ) != 0
+                    {
+                        (total_bytes, user_free_bytes)
+                    } else {
+                        (0, 0)
+                    }
+                };
+
+                drives.push(DriveItem {
+                    name: format!("Disco ({}:)", c as char),
+                    path: format!("{}:/", c as char),
+                    total_bytes: total,
+                    available_bytes: available,
+                });
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        drives.push(DriveItem {
+            name: "Raíz (/)".into(),
+            path: "/".into(),
+            total_bytes: 0,
+            available_bytes: 0,
+        });
+    }
+    Ok(drives)
+}
+
 #[tauri::command]
 fn scan_directory(path: String) -> Result<Vec<FileItem>, String> {
     let mut files = Vec::new();
@@ -330,6 +403,7 @@ pub fn run() {
             move_item,
             search::search_files,
             read_file_content,
+            get_system_drives,
             create_terminal_session,
             write_terminal_data,
             resize_terminal,

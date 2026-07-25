@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Alt + Flecha Arriba`: Subir un nivel a la carpeta padre.
   - `Ctrl + R` / `F5`: Recargar / Refrescar el directorio actual.
   - `Ctrl + L`: Activar el modo edición en la barra de dirección.
+- **Barra Lateral Interactiva (`Sidebar.tsx`)**:
+  - Marcadores personalizables (Acceso Rápido / Favoritos) con soporte para arrastrar carpetas (Drag & Drop) desde la vista principal de archivos.
+  - Persistencia automática de la lista de favoritos en `localStorage` entre sesiones.
+  - Menú contextual (clic derecho) en marcadores con opciones "Abrir en nueva pestaña" y "Eliminar de Favoritos".
+  - Nueva sección "DISPOSITIVOS Y UNIDADES" con detección dinámica de discos del sistema vía IPC Rust (`get_system_drives`), barras de porcentaje de uso y espacio disponible.
+  - Resaltado de estado activo (`isActive`) para la ubicación que coincide con la pestaña seleccionada.
 
 ## [v0.4.0] - 2026-07-25 - Terminal & CLI Release
 

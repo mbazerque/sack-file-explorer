@@ -508,6 +508,24 @@ export function FileList({
               return (
                 <tr
                   key={`${item.name}-${index}`}
+                  draggable={item.is_dir}
+                  onDragStart={(e) => {
+                    if (item.is_dir) {
+                      const itemPath =
+                        fileInfo.path ||
+                        `${currentPath.replace(/\\/g, "/").replace(/\/+$/, "")}/${item.name}`;
+                      e.dataTransfer.setData(
+                        "application/json",
+                        JSON.stringify({
+                          name: item.name,
+                          path: itemPath,
+                          is_dir: true,
+                        })
+                      );
+                      e.dataTransfer.setData("text/plain", itemPath);
+                      e.dataTransfer.effectAllowed = "copy";
+                    }
+                  }}
                   onClick={(e) => handleRowClick(item, e)}
                   onDoubleClick={() => handleRowDoubleClick(item)}
                   onContextMenu={(e) => handleContextMenu(item, e)}
