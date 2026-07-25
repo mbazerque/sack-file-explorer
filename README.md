@@ -12,24 +12,32 @@ Fast, modern desktop file explorer built with Tauri v2, Rust, and React.
 
 ## Key Features
 
-- Navigation system with back, forward, and parent directory buttons
-- Breadcrumb-style address bar with direct path editing (`Ctrl+L`)
-- Quick-access sidebar for core drives and system directories
-- Interactive file table with column sorting (name, date, type, size)
-- Developer context menu: copy path, open in terminal, delete with confirmation
-- Keyboard shortcuts for common navigation and control actions
-- Fixed status bar showing item count and selection metadata
+- **Integrated PTY Terminal & CLI Tabs (v0.4.0 Release)**: Full Windows ConPTY terminal powered by `portable-pty` and `@xterm/xterm`. Supports terminal tabs (`Ctrl+Shift+T`), collapsible bottom terminal drawer (`Ctrl+J`), resize synchronization, and persistent shell sessions on tab switching.
+- **Interactive Breadcrumb PathBar**: Interactive folder path segments, quick navigation to parent folders, edit mode input (`Ctrl+L`), and intelligent `...` dropdown for deep paths.
+- **Advanced Sidebar & Subfolder Tree View**: Collapsible custom organizer groups, drag & drop folder pinning, system drives section with disk space progress bars, and VS Code-style lazy-loaded subfolder tree view via Rust IPC.
+- **Advanced Context Menu & Group Management**: Contextual menu options to pin items to Quick Access, assign to existing custom groups, or create new groups on the fly.
+- **Core File Operations**:
+  - Multi-selection (`Ctrl+Click` for individual, `Shift+Click` for continuous ranges).
+  - Internal Clipboard Context with `Ctrl+C` (copy) and `Ctrl+X` (cut with `opacity-50` visual attenuation).
+  - Fast paste (`Ctrl+V`) via native Rust copy/move commands.
+  - Inline renaming (`F2`) with automatic base-name selection excluding file extensions.
+  - OS Recycle Bin deletion (`Delete` key) using native Windows `SHFileOperationW`.
+- **Multi-Tab & Dual-Pane Split View**: Isolated tab browsing (`Ctrl+T`, `Ctrl+W`, `Ctrl+Tab`) and side-by-side dual panel view (`Ctrl+\`) with cross-panel file transfer.
+- **Async Rust Fast Search**: Real-time directory search powered by Rust threads, fuzzy matching score ranking, and debounced input (`Ctrl+F`).
+- **Quick Preview Modal**: Instant file content preview (`Space`) for code, images, text, and metadata fallback.
+- **Sleek Linear/Vercel Neutral Dark Theme**: Refined Zinc low-contrast palette (`#09090b` background, `#121215` panels, `#27272a` borders, `#f4f4f5` text).
 
 ---
 
 ## Tech Stack
 
-| Layer            | Technology                          |
-| ---------------- | ----------------------------------- |
-| Frontend         | React 19 + TypeScript + Tailwind CSS |
-| Desktop Framework | Tauri v2                           |
-| Core Backend     | Rust                                |
-| Icons            | Lucide React                        |
+| Layer             | Technology                          |
+| ----------------- | ----------------------------------- |
+| Frontend          | React 19 + TypeScript + Tailwind CSS|
+| Desktop Framework | Tauri v2                            |
+| Core Backend      | Rust (`portable-pty`, `ignore`)     |
+| Terminal Engine   | xterm.js + ConPTY                   |
+| Icons             | Lucide React                        |
 
 ---
 
