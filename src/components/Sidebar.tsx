@@ -15,24 +15,21 @@ import {
   Loader2,
   FolderPlus,
   Edit2,
+  MoveRight,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTabContext } from "../context/TabContext";
 import { FileItem } from "../types/file";
+import {
+  getStoredGroups,
+  saveStoredGroups,
+  moveItemToGroup,
+  SidebarGroup,
+  FavoriteItem,
+  COLLAPSED_STORAGE_KEY,
+} from "../utils/sidebarStorage";
 
-export interface FavoriteItem {
-  id: string;
-  name: string;
-  path: string;
-  iconType?: "home" | "documents" | "downloads" | "desktop" | "folder";
-}
-
-export interface SidebarGroup {
-  id: string;
-  name: string;
-  isCustom?: boolean;
-  items: FavoriteItem[];
-}
+export type { FavoriteItem, SidebarGroup };
 
 export interface DriveItem {
   name: string;
@@ -45,23 +42,6 @@ interface SidebarProps {
   onNavigate: (path: string) => void;
   currentPath: string;
 }
-
-const GROUPS_STORAGE_KEY = "sack_sidebar_groups";
-const COLLAPSED_STORAGE_KEY = "sack_sidebar_collapsed_sections";
-
-const DEFAULT_GROUPS: SidebarGroup[] = [
-  {
-    id: "group-quick-access",
-    name: "Acceso Rápido",
-    isCustom: false,
-    items: [
-      { id: "fav-home", name: "Inicio", path: "C:/Users", iconType: "home" },
-      { id: "fav-docs", name: "Documentos", path: "C:/Users/Public/Documents", iconType: "documents" },
-      { id: "fav-downloads", name: "Descargas", path: "C:/Users/Public/Downloads", iconType: "downloads" },
-      { id: "fav-desktop", name: "Escritorio", path: "C:/Users/Public/Desktop", iconType: "desktop" },
-    ],
-  },
-];
 
 function normalizePath(p: string): string {
   return p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
@@ -215,16 +195,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
   const { createTab } = useTabContext();
 
   // 1. Sidebar Groups State
-  const [groups, setGroups] = useState<SidebarGroup[]>(() => {
-    try {
-      const saved = localStorage.getItem(GROUPS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return DEFAULT_GROUPS;
-  });
+  const [groups, setGroups] = useState<SidebarGroup[]>(() => getStoredGroups());
 
   // 2. Section Collapse States
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
@@ -256,7 +227,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
 
-  // 8. Context Menu State
+  // 8. Context Menu & Submenu State
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -264,8 +235,18 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
     item?: FavoriteItem;
     groupId?: string;
   } | null>(null);
+  const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
 
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Listen to global sidebar update events to stay reactively in sync
+  useEffect(() => {
+    const handleSidebarUpdated = () => {
+      setGroups(getStoredGroups());
+    };
+    window.addEventListener("sack-sidebar-updated", handleSidebarUpdated);
+    return () => window.removeEventListener("sack-sidebar-updated", handleSidebarUpdated);
+  }, []);
 
   // Fetch drives on mount
   const fetchDrives = async () => {
@@ -285,14 +266,6 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
     fetchDrives();
   }, []);
 
-  // Save groups to localStorage
-  const saveGroups = (updated: SidebarGroup[]) => {
-    setGroups(updated);
-    try {
-      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
-  };
-
   // Save collapsed states
   const toggleSectionCollapse = (sectionId: string) => {
     setCollapsedSections((prev) => {
@@ -309,6 +282,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
     const handleClickOutside = (e: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
         setContextMenu(null);
+        setShowMoveSubmenu(false);
       }
     };
     if (contextMenu) {
@@ -393,7 +367,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
           };
           return { ...g, items: [...g.items, newFav] };
         });
-        saveGroups(updatedGroups);
+        saveStoredGroups(updatedGroups);
       }
     } catch (err) {
       console.error("Error dropping folder to sidebar group:", err);
@@ -412,7 +386,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
       items: [],
     };
 
-    saveGroups([...groups, newGroup]);
+    saveStoredGroups([...groups, newGroup]);
     setNewGroupName("");
     setIsCreatingGroup(false);
   };
@@ -421,7 +395,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
   const handleRenameGroup = (groupId: string, newName: string) => {
     if (!newName.trim()) return;
     const updated = groups.map((g) => (g.id === groupId ? { ...g, name: newName.trim() } : g));
-    saveGroups(updated);
+    saveStoredGroups(updated);
     setEditingGroupId(null);
     setContextMenu(null);
   };
@@ -429,7 +403,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
   // Group removal
   const handleDeleteGroup = (groupId: string) => {
     const updated = groups.filter((g) => g.id !== groupId);
-    saveGroups(updated);
+    saveStoredGroups(updated);
     setContextMenu(null);
   };
 
@@ -439,14 +413,22 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
       if (g.id !== groupId) return g;
       return { ...g, items: g.items.filter((it) => it.id !== itemId) };
     });
-    saveGroups(updated);
+    saveStoredGroups(updated);
     setContextMenu(null);
+  };
+
+  // Move item to target group
+  const handleMoveToGroup = (fromGroupId: string, toGroupId: string, itemId: string) => {
+    moveItemToGroup(fromGroupId, toGroupId, itemId);
+    setContextMenu(null);
+    setShowMoveSubmenu(false);
   };
 
   // Context menu handlers
   const handleItemContextMenu = (item: FavoriteItem, groupId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setShowMoveSubmenu(false);
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -461,6 +443,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
     if (!g || !g.isCustom) return;
     e.preventDefault();
     e.stopPropagation();
+    setShowMoveSubmenu(false);
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -507,7 +490,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
                       if (e.key === "Escape") setEditingGroupId(null);
                     }}
                     onBlur={() => handleRenameGroup(group.id, editingGroupName)}
-                    className="bg-gray-800 text-gray-100 border border-blue-500 rounded px-1.5 py-0.5 text-xs focus:outline-none w-full"
+                    className="bg-gray-800 text-gray-100 border border-blue-500 rounded px-1.5 py-0.5 text-xs focus:outline-none w-full font-sans"
                   />
                 ) : (
                   <button
@@ -741,10 +724,11 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
         <div
           ref={contextMenuRef}
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-xl py-1.5 w-48 text-xs select-none font-sans text-gray-200"
+          className="fixed z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-xl py-1.5 w-52 text-xs select-none font-sans text-gray-200"
         >
           {contextMenu.type === "item" && contextMenu.item && contextMenu.groupId && (
             <>
+              {/* Abrir en nueva pestaña */}
               <button
                 type="button"
                 onClick={() => {
@@ -753,19 +737,66 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
                 }}
                 className="w-full px-3 py-1.5 text-left hover:bg-gray-800 hover:text-white flex items-center gap-2 transition-colors"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                <ExternalLink className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 <span>Abrir en nueva pestaña</span>
               </button>
 
+              {/* Mover a Grupo Submenu */}
+              <div
+                className="relative"
+                onMouseEnter={() => setShowMoveSubmenu(true)}
+                onMouseLeave={() => setShowMoveSubmenu(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowMoveSubmenu((prev) => !prev)}
+                  className="w-full px-3 py-1.5 text-left hover:bg-gray-800 hover:text-white flex items-center justify-between transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <MoveRight className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>Mover a grupo...</span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                </button>
+
+                {showMoveSubmenu && (
+                  <div className="absolute top-0 left-full -ml-1 w-48 bg-gray-900 border border-gray-700 shadow-2xl rounded-xl py-1 z-50 font-sans text-xs">
+                    <div className="px-3 py-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-800 mb-1">
+                      Seleccionar grupo
+                    </div>
+                    {groups
+                      .filter((g) => g.id !== contextMenu.groupId)
+                      .map((targetGroup) => (
+                        <button
+                          key={targetGroup.id}
+                          type="button"
+                          onClick={() =>
+                            handleMoveToGroup(
+                              contextMenu.groupId!,
+                              targetGroup.id,
+                              contextMenu.item!.id
+                            )
+                          }
+                          className="w-full px-3 py-1.5 text-left hover:bg-gray-800 hover:text-white flex items-center gap-2 transition-colors truncate"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                          <span className="truncate">{targetGroup.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
               <div className="my-1 border-t border-gray-800" />
 
+              {/* Quitar de Favoritos / Acceso Rápido */}
               <button
                 type="button"
                 onClick={() => handleRemoveItem(contextMenu.groupId!, contextMenu.item!.id)}
                 className="w-full px-3 py-1.5 text-left hover:bg-red-950/60 hover:text-red-300 text-red-400 flex items-center gap-2 transition-colors"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Eliminar de Favoritos</span>
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Quitar de Favoritos</span>
               </button>
             </>
           )}
@@ -784,7 +815,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
                 }}
                 className="w-full px-3 py-1.5 text-left hover:bg-gray-800 hover:text-white flex items-center gap-2 transition-colors"
               >
-                <Edit2 className="w-3.5 h-3.5 text-blue-400" />
+                <Edit2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 <span>Renombrar Grupo</span>
               </button>
 
@@ -795,7 +826,7 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
                 onClick={() => handleDeleteGroup(contextMenu.groupId!)}
                 className="w-full px-3 py-1.5 text-left hover:bg-red-950/60 hover:text-red-300 text-red-400 flex items-center gap-2 transition-colors"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
                 <span>Eliminar Grupo</span>
               </button>
             </>

@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Árbol de Subcarpetas desplegable (Sidebar Tree View) con carga diferida (lazy loading) mediante el IPC de Rust (`scan_directory`) al expandir cualquier marcador o unidad de disco, estilo VS Code.
   - Renderizado recursivo indentado en cascada con diferenciación de íconos entre carpetas abiertas (`FolderOpen`) y colapsadas (`Folder`), respetando la navegación al hacer clic en el nombre y la expansión al hacer clic en la flecha.
   - Soporte completo para Drag & Drop de carpetas desde la tabla principal hacia cualquier sección o grupo organizador de la Sidebar.
+- **Menú Contextual Avanzado ([ContextMenu.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/ContextMenu.tsx))**:
+  - Opción 📌 "Anclar a Acceso Rápido" en el menú contextual de la vista principal para anclar directamente cualquier archivo o carpeta a la Sidebar.
+  - Submenú desplegable 📁 "Agregar a Grupo..." que lista dinámicamente todos los grupos personalizados existentes en la barra lateral.
+  - Opción ➕ "Nuevo Grupo..." al vuelo con modal/prompt para crear una nueva sección organizada en la Sidebar e insertarle el elemento seleccionado inmediatamente.
+  - Submenú ➡️ "Mover a grupo..." y "Quitar de Favoritos" dentro del menú contextual de marcadores en la propia Sidebar.
 
 ## [v0.4.0] - 2026-07-25 - Terminal & CLI Release
 
