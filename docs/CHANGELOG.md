@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-07-25 - Terminal & CLI Release
+
 ### Added
 - **Sistema de Terminal Integrada y Promovible (`BottomTerminal` & `TabTerminal`)**:
   - Implementado panel inferior deslizable de terminal activable con el atajo de teclado `Ctrl + ~` (o `Ctrl + ` `).
@@ -21,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Solucionados los problemas de borrado visual de caracteres al presionar Backspace (`\x7f` / `\b`), saltos de línea incorrectos y congelamiento/sobreescritura de texto en PowerShell/Bash.
   - Sincronización dinámica de dimensiones `cols`/`rows` mediante el nuevo comando `resize_terminal` y listener de eventos en el frontend de React.
   - Prevención de fugas de procesos (fantasmas) y duplicación de prompts (`PS C:\>`) en StrictMode mediante una referencia de ciclo de vida unificada (`useRef`) y una desconexión explícita al desmontar el componente.
+  - Mantenimiento y persistencia de terminales (`TabTerminal` y `BottomTerminal`) al navegar y cambiar entre pestañas/paneles mediante ocultamiento por CSS, evitando la destrucción y reinicio del proceso de shell secundario.
 
 
 ## [v0.3.0] - 2026-07-24
