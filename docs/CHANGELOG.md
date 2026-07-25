@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Navegación Híbrida de Pestañas (Hybrid Tab Navigation)**:
-  - Implementado comportamiento dinámico de ancho por pestaña: máximo de `200px` y mínimo estricto de `120px` para garantizar visibilidad de icono, título truncado y botón de cierre.
-  - Habilitado scroll horizontal en la barra de pestañas (`overflow-x-auto`) con barra de desplazamiento ocultada mediante utilidad `scrollbar-none`.
-  - Registrado listener de evento `wheel` para convertir scroll vertical del ratón en scroll horizontal (`scrollLeft`) en el contenedor de pestañas.
-  - Mantenida la región de arrastre (`data-tauri-drag-region`) en los espacios vacíos del contenedor para no romper el arrastre de ventana.
+  - Ampliado el ancho dinámico por pestaña: máximo de `260px` y mínimo de `140px` (`flex-1 min-w-[140px] max-w-[260px]`) para ofrecer mayor comodidad de lectura de rutas largas.
+  - Habilitado scroll horizontal en la barra de pestañas (`overflow-x-auto`) con barra de desplazamiento ocultada mediante utilidad `scrollbar-none` y scroll suave por rueda de ratón (`wheel`).
+  - Integrado auto-desplazamiento suave (`scrollIntoView`) que enfoca automáticamente la pestaña activa al cambiar o crear pestañas.
+  - Habilitadas las capacidades ACL de ventana en Tauri v2 (`core:window:allow-minimize`, `core:window:allow-toggle-maximize`, `core:window:allow-close`, `core:window:allow-start-dragging`) en `src-tauri/capabilities/default.json`.
+  - Implementada llamada directa a `getCurrentWindow().startDragging()` y `toggleMaximize()` en `onMouseDown` / `onDoubleClick` sobre áreas libres de la barra superior para garantizar el movimiento y maximizado de la ventana.
 - **Rediseño de Vista Dividida (Split View)**:
   - Eliminados los títulos "Panel Izquierdo" y "Panel Derecho" de la cabecera de los paneles.
   - Se muestra únicamente la ruta actual formateada como breadcrumbs de forma compacta.

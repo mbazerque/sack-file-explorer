@@ -13,7 +13,7 @@ export function WindowControls() {
     appWindow
       .isMaximized()
       .then(setIsMaximized)
-      .catch(() => {});
+      .catch((err) => console.warn("isMaximized error:", err));
 
     // Listen to resize events to update maximize/restore icon
     appWindow
@@ -28,19 +28,23 @@ export function WindowControls() {
       .then((fn) => {
         unlisten = fn;
       })
-      .catch(() => {});
+      .catch((err) => console.warn("onResized error:", err));
 
     return () => {
       if (unlisten) unlisten();
     };
   }, []);
 
+  const stopDrag = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await getCurrentWindow().minimize();
     } catch (err) {
-      console.warn("Window minimize error:", err);
+      console.error("Window minimize error:", err);
     }
   };
 
@@ -52,7 +56,7 @@ export function WindowControls() {
       const max = await appWindow.isMaximized();
       setIsMaximized(max);
     } catch (err) {
-      console.warn("Window maximize error:", err);
+      console.error("Window maximize error:", err);
     }
   };
 
@@ -61,18 +65,20 @@ export function WindowControls() {
     try {
       await getCurrentWindow().close();
     } catch (err) {
-      console.warn("Window close error:", err);
+      console.error("Window close error:", err);
     }
   };
 
   return (
     <div
       data-tauri-drag-region="false"
+      onMouseDown={stopDrag}
       className="flex items-center ml-auto shrink-0 select-none h-full"
     >
       <button
         type="button"
         data-tauri-drag-region="false"
+        onMouseDown={stopDrag}
         onClick={handleMinimize}
         title="Minimizar"
         className="h-9 w-11 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
@@ -83,6 +89,7 @@ export function WindowControls() {
       <button
         type="button"
         data-tauri-drag-region="false"
+        onMouseDown={stopDrag}
         onClick={handleToggleMaximize}
         title={isMaximized ? "Restaurar" : "Maximizar"}
         className="h-9 w-11 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
@@ -97,6 +104,7 @@ export function WindowControls() {
       <button
         type="button"
         data-tauri-drag-region="false"
+        onMouseDown={stopDrag}
         onClick={handleClose}
         title="Cerrar"
         className="h-9 w-11 flex items-center justify-center text-gray-400 hover:text-white hover:bg-red-600 transition-colors"
