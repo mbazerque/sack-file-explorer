@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Dimensiones de Ventana Iniciales Ampliadas**:
+  - Incrementado el ancho predeterminado de la ventana a `1200px` (antes 1000px) y el alto a `780px` (antes 660px) en `src-tauri/tauri.conf.json`.
+  - Establecido un ancho mínimo de `800px` y un alto mínimo de `520px` para asegurar una disposición holgada de Sidebar, Navbar y vista dividida (Split View).
+  - Activada la propiedad `"center": true` para centrar automáticamente la aplicación en la pantalla al iniciar.
 - **Navegación Híbrida de Pestañas (Hybrid Tab Navigation)**:
   - Ampliado el ancho dinámico por pestaña: máximo de `260px` y mínimo de `140px` (`flex-1 min-w-[140px] max-w-[260px]`) para ofrecer mayor comodidad de lectura de rutas largas.
   - Habilitado scroll horizontal en la barra de pestañas (`overflow-x-auto`) con barra de desplazamiento ocultada mediante utilidad `scrollbar-none` y scroll suave por rueda de ratón (`wheel`).
