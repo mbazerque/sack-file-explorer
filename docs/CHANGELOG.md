@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Breadcrumb / PathBar Interactivo**:
+  - Transformación de la barra de ruta plana en migas de pan (breadcrumbs) con segmentos cliqueables para navegar directamente a cualquier carpeta padre.
+  - Modo Edición de Ruta activable al hacer clic en el espacio vacío de la barra o mediante el atajo de teclado `Ctrl + L`, con selección automática de texto plano, soporte de tipeo/pegado y cancelación con `Esc`.
+  - Truncamiento inteligente con menú desplegable `...` para rutas compuestas por más de 4 segmentos.
+- **Atajos de Teclado Globales de Navegación**:
+  - `Alt + Flecha Izquierda` (y `Backspace` fuera de elementos editables/terminal): Retroceder en el historial de la pestaña activa.
+  - `Alt + Flecha Derecha`: Avanzar en el historial de la pestaña activa.
+  - `Alt + Flecha Arriba`: Subir un nivel a la carpeta padre.
+  - `Ctrl + R` / `F5`: Recargar / Refrescar el directorio actual.
+  - `Ctrl + L`: Activar el modo edición en la barra de dirección.
+
 ## [v0.4.0] - 2026-07-25 - Terminal & CLI Release
 
 ### Added

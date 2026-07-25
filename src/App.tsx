@@ -28,7 +28,7 @@ function App() {
   const activeNav = activeSide === "left" ? leftNav : rightNav;
   const activeSearch = activeSide === "left" ? leftSearch : rightSearch;
 
-  // Keyboard shortcuts: Backspace, F5, and Ctrl+~ (Toggle bottom terminal)
+  // Global Navigation Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isInputFocused =
@@ -37,7 +37,14 @@ function App() {
         (document.activeElement as HTMLElement)?.isContentEditable ||
         (document.activeElement as HTMLElement)?.closest(".xterm") !== null;
 
-      // Ctrl + J or Ctrl + ~ / Ctrl + ` to toggle bottom terminal
+      // 1. Ctrl + L: Focus address bar in edit mode
+      if ((e.ctrlKey || e.metaKey) && (e.key === "l" || e.key === "L")) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("focus-address-bar"));
+        return;
+      }
+
+      // 2. Ctrl + J or Ctrl + ~ / Ctrl + ` to toggle bottom terminal
       const isTerminalShortcut =
         (e.ctrlKey || e.metaKey) &&
         (e.key === "j" || e.key === "J" || e.code === "KeyJ" || e.code === "Backquote" || e.key === "~" || e.key === "`");
@@ -45,14 +52,37 @@ function App() {
       if (isTerminalShortcut) {
         e.preventDefault();
         setIsBottomTerminalOpen((prev) => !prev);
-      } else if (e.key === "F5") {
-        e.preventDefault();
-        activeNav.refresh();
-      } else if (e.key === "Backspace" && !isInputFocused) {
+        return;
+      }
+
+      // Skip remaining navigation hotkeys if user is typing in an input, textarea, editable element, or terminal
+      if (isInputFocused) return;
+
+      // 3. Alt + Left Arrow or Backspace: Go Back
+      if ((e.altKey && (e.key === "ArrowLeft" || e.code === "ArrowLeft")) || e.key === "Backspace") {
         if (activeNav.canGoBack) {
           e.preventDefault();
           activeNav.goBack();
         }
+      }
+      // 4. Alt + Right Arrow: Go Forward
+      else if (e.altKey && (e.key === "ArrowRight" || e.code === "ArrowRight")) {
+        if (activeNav.canGoForward) {
+          e.preventDefault();
+          activeNav.goForward();
+        }
+      }
+      // 5. Alt + Up Arrow: Go Up (Parent Directory)
+      else if (e.altKey && (e.key === "ArrowUp" || e.code === "ArrowUp")) {
+        if (activeNav.canGoUp) {
+          e.preventDefault();
+          activeNav.goUp();
+        }
+      }
+      // 6. Ctrl + R or F5: Refresh
+      else if (((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R")) || e.key === "F5") {
+        e.preventDefault();
+        activeNav.refresh();
       }
     };
 
