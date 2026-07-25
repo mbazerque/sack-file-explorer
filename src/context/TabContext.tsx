@@ -35,6 +35,8 @@ interface TabContextType {
   activeTab: Tab;
   activePanelState: PanelState;
   otherPanelState: PanelState;
+  showHiddenFiles: boolean;
+  toggleShowHiddenFiles: () => void;
   createTab: (initialPath?: string) => void;
   createTerminalTab: (initialPath?: string) => void;
   closeTab: (id: string) => void;
@@ -56,6 +58,26 @@ export function TabProvider({ children }: { children: ReactNode }) {
   const [leftTabId, setLeftTabId] = useState<string>(initialTab.id);
   const [rightTabId, setRightTabId] = useState<string>(initialTab.id);
   const [activePanel, setActivePanelState] = useState<"left" | "right">("left");
+  const [showHiddenFiles, setShowHiddenFiles] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("sack-show-hidden");
+      return saved !== null ? saved === "true" : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleShowHiddenFiles = useCallback(() => {
+    setShowHiddenFiles((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sack-show-hidden", String(next));
+      } catch (err) {
+        console.error("Failed to save showHiddenFiles setting:", err);
+      }
+      return next;
+    });
+  }, []);
 
   const activeTabId = isSplitViewOpen
     ? (activePanel === "left" ? leftTabId : rightTabId)
@@ -319,6 +341,11 @@ export function TabProvider({ children }: { children: ReactNode }) {
         e.preventDefault();
         toggleSplitView();
       }
+      // Ctrl+H: Toggle hidden files
+      else if ((e.ctrlKey || e.metaKey) && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        toggleShowHiddenFiles();
+      }
       // Ctrl+T: New tab
       else if ((e.ctrlKey || e.metaKey) && (e.key === "t" || e.key === "T")) {
         e.preventDefault();
@@ -344,7 +371,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [createTab, closeTab, activeTabId, tabs.length, nextTab, previousTab, toggleSplitView]);
+  }, [createTab, closeTab, activeTabId, tabs.length, nextTab, previousTab, toggleSplitView, toggleShowHiddenFiles]);
 
   return (
     <TabContext.Provider
@@ -354,6 +381,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
         activeTab: exposedActiveTab,
         activePanelState,
         otherPanelState,
+        showHiddenFiles,
+        toggleShowHiddenFiles,
         createTab,
         createTerminalTab,
         closeTab,

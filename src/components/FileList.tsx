@@ -21,6 +21,8 @@ import { FileItem, FileInfo } from "../types/file";
 import { ContextMenu } from "./ContextMenu";
 import { QuickPreviewModal } from "./QuickPreviewModal";
 import { useClipboard } from "../context/ClipboardContext";
+import { useTabContext } from "../context/TabContext";
+import { isDimmedItem } from "../utils/fileUtils";
 
 export type ListItem = FileItem | FileInfo;
 
@@ -198,6 +200,7 @@ export function FileList({
   onPanelFocus,
 }: FileListProps) {
   const { clipboard } = useClipboard();
+  const { showHiddenFiles } = useTabContext();
 
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -285,7 +288,11 @@ export function FileList({
   };
 
   const sortedFiles = useMemo(() => {
-    return [...files].sort((a, b) => {
+    const visibleFiles = showHiddenFiles
+      ? files
+      : files.filter((f) => !f.name.startsWith("."));
+
+    return [...visibleFiles].sort((a, b) => {
       if (sortColumn !== "type") {
         if (a.is_dir !== b.is_dir) {
           return b.is_dir ? 1 : -1;
@@ -325,7 +332,7 @@ export function FileList({
       if (result !== 0) return result;
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     });
-  }, [files, sortColumn, sortDirection]);
+  }, [files, sortColumn, sortDirection, showHiddenFiles]);
 
   // Keyboard navigation for Space preview & Arrow keys
   useEffect(() => {
@@ -624,6 +631,8 @@ export function FileList({
                 clipboard.sourcePath.replace(/\\/g, "/").toLowerCase() === normCurrentPath &&
                 clipboard.items.some((it) => it.name === item.name);
 
+              const isDimmed = isDimmedItem(item.name);
+
               return (
                 <tr
                   key={`${item.name}-${index}`}
@@ -649,7 +658,7 @@ export function FileList({
                   onDoubleClick={() => handleRowDoubleClick(item)}
                   onContextMenu={(e) => handleContextMenu(item, index, e)}
                   className={`transition-colors text-gray-200 cursor-pointer ${
-                    isCut ? "opacity-50" : ""
+                    isCut ? "opacity-40" : isDimmed ? "opacity-60 hover:opacity-90 transition-opacity" : ""
                   } ${
                     isSelected
                       ? "bg-zinc-800 text-zinc-100 font-medium ring-1 ring-zinc-700/80 shadow-sm"

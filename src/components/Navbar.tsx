@@ -15,7 +15,12 @@ import {
   ChevronDown,
   LayoutList,
   LayoutGrid,
+  Eye,
+  EyeOff,
+  Code2,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { useTabContext } from "../context/TabContext";
 
 export interface BreadcrumbSegment {
   name: string;
@@ -126,6 +131,7 @@ export function Navbar({
   viewMode,
   onViewModeChange,
 }: NavbarProps) {
+  const { showHiddenFiles, toggleShowHiddenFiles } = useTabContext();
   const [inputValue, setInputValue] = useState(currentPath);
   const [isEditingPath, setIsEditingPath] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -427,6 +433,29 @@ export function Navbar({
           )}
         </button>
 
+        {/* Hidden Files Toggle Button */}
+        <button
+          type="button"
+          onClick={toggleShowHiddenFiles}
+          title={
+            showHiddenFiles
+              ? "Ocultar archivos ocultos (Ctrl+H)"
+              : "Mostrar archivos ocultos (Ctrl+H)"
+          }
+          className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border transition-all shrink-0 ${
+            showHiddenFiles
+              ? "bg-purple-600/25 text-purple-300 border-purple-500/50 hover:bg-purple-600/35 ring-1 ring-purple-500/30"
+              : "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-750 hover:text-gray-200"
+          }`}
+        >
+          {showHiddenFiles ? (
+            <Eye className="w-3.5 h-3.5 text-purple-400" />
+          ) : (
+            <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+          )}
+          <span className="hidden xl:inline">Ocultos</span>
+        </button>
+
         {/* Split View Toggle Button */}
         <button
           type="button"
@@ -440,6 +469,24 @@ export function Navbar({
         >
           <Columns2 className="w-3.5 h-3.5 text-blue-400" />
           <span className="hidden lg:inline">Split View</span>
+        </button>
+
+        {/* Open in VS Code Button */}
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await invoke("open_in_vscode", { path: currentPath });
+            } catch (err) {
+              console.error("Failed to open VS Code:", err);
+              alert(`Error al abrir VS Code: ${String(err)}`);
+            }
+          }}
+          title="Open in VS Code"
+          className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-750 hover:text-blue-400 transition-all shrink-0"
+        >
+          <Code2 className="w-3.5 h-3.5 text-blue-400" />
+          <span className="hidden lg:inline">VS Code</span>
         </button>
 
         {/* View Switcher Segmented Control (Table vs Grid) */}

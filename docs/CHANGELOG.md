@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fallback de comparación por nombre cuando la columna principal devuelve cero, evitando orden no determinista.
 
 ### Added
+- **VS Code Integration ([Navbar.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/Navbar.tsx) & [ContextMenu.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/ContextMenu.tsx))**:
+  - Added compact VS Code action button in Topbar next to Split View with tooltip "Open in VS Code" executing `code .` in current directory via IPC.
+  - Added "Open in VS Code" option in Context Menu when right-clicking files or folders executing `code "<target_path>"`.
 - **Conmutador de Vistas y Grid View ([FileGrid.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/FileGrid.tsx) & [Navbar.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/Navbar.tsx))**:
   - Implementación del modo de visualización en Cuadrícula / Grid (`grid`) alternativo a la vista tradicional de Tabla (`table`).
   - Creación del componente `FileGrid.tsx` con disposición de tarjetas auto-adaptables (`grid-cols-auto-fill`), íconos visuales de gran tamaño por tipo de archivo, y nombres truncados.

@@ -10,9 +10,13 @@ import {
   ChevronRight,
   Plus,
   Edit2,
+  Eye,
+  EyeOff,
+  Code2,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileItem, FileInfo } from "../types/file";
+import { useTabContext } from "../context/TabContext";
 import {
   getStoredGroups,
   addItemToQuickAccess,
@@ -47,6 +51,7 @@ export function ContextMenu({
   targetPanelPath,
   onActionSuccess,
 }: ContextMenuProps) {
+  const { showHiddenFiles, toggleShowHiddenFiles } = useTabContext();
   const menuRef = useRef<HTMLDivElement>(null);
   const [groups, setGroups] = useState<SidebarGroup[]>([]);
   const [showGroupSubmenu, setShowGroupSubmenu] = useState(false);
@@ -279,6 +284,44 @@ export function ContextMenu({
           >
             <Terminal className="w-4 h-4 text-cyan-400 shrink-0" />
             <span>Abrir en terminal</span>
+          </button>
+
+          {/* Open in VS Code */}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await invoke("open_in_vscode", { path: fullPath });
+              } catch (err) {
+                console.error("Failed to open VS Code:", err);
+                alert(`Error al abrir en VS Code: ${String(err)}`);
+              }
+              onClose();
+            }}
+            className="w-full px-3 py-1.5 text-left hover:bg-blue-600/20 hover:text-blue-300 flex items-center gap-2.5 transition-colors"
+          >
+            <Code2 className="w-4 h-4 text-blue-400 shrink-0" />
+            <span>Abrir en VS Code</span>
+          </button>
+
+          {/* Toggle Hidden Files */}
+          <button
+            type="button"
+            onClick={() => {
+              toggleShowHiddenFiles();
+              onClose();
+            }}
+            className="w-full px-3 py-1.5 text-left hover:bg-purple-600/20 hover:text-purple-300 flex items-center justify-between transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              {showHiddenFiles ? (
+                <EyeOff className="w-4 h-4 text-purple-400 shrink-0" />
+              ) : (
+                <Eye className="w-4 h-4 text-purple-400 shrink-0" />
+              )}
+              <span>{showHiddenFiles ? "Ocultar elementos ocultos" : "Mostrar elementos ocultos"}</span>
+            </div>
+            <span className="text-[10px] text-gray-500 font-mono">Ctrl+H</span>
           </button>
 
           {/* Split view actions */}

@@ -167,6 +167,25 @@ fn open_in_terminal(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_in_vscode(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "code", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open VS Code: {}", e))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("code")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open VS Code: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn delete_item(path: String) -> Result<(), String> {
     let metadata = fs::metadata(&path).map_err(|e| format!("Failed to read metadata: {}", e))?;
     if metadata.is_dir() {
@@ -462,6 +481,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             scan_directory,
             open_in_terminal,
+            open_in_vscode,
             delete_item,
             copy_item,
             move_item,

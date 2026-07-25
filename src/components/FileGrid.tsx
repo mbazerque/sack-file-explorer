@@ -19,6 +19,8 @@ import { FileItem, FileInfo } from "../types/file";
 import { ContextMenu } from "./ContextMenu";
 import { QuickPreviewModal } from "./QuickPreviewModal";
 import { useClipboard } from "../context/ClipboardContext";
+import { useTabContext } from "../context/TabContext";
+import { isDimmedItem } from "../utils/fileUtils";
 
 export type ListItem = FileItem | FileInfo;
 
@@ -155,6 +157,7 @@ export function FileGrid({
   onPanelFocus,
 }: FileGridProps) {
   const { clipboard } = useClipboard();
+  const { showHiddenFiles } = useTabContext();
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -230,13 +233,17 @@ export function FileGrid({
   };
 
   const sortedFiles = useMemo(() => {
-    return [...files].sort((a, b) => {
+    const visibleFiles = showHiddenFiles
+      ? files
+      : files.filter((f) => !f.name.startsWith("."));
+
+    return [...visibleFiles].sort((a, b) => {
       if (a.is_dir !== b.is_dir) {
         return a.is_dir ? -1 : 1;
       }
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     });
-  }, [files]);
+  }, [files, showHiddenFiles]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -444,6 +451,8 @@ export function FileGrid({
             clipboard.sourcePath.replace(/\\/g, "/").toLowerCase() === normCurrentPath &&
             clipboard.items.some((it) => it.name === item.name);
 
+          const isDimmed = isDimmedItem(item.name);
+
           return (
             <div
               key={`${item.name}-${index}`}
@@ -469,7 +478,7 @@ export function FileGrid({
               onDoubleClick={() => handleCardDoubleClick(item)}
               onContextMenu={(e) => handleContextMenu(item, index, e)}
               className={`group relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all cursor-pointer select-none aspect-square text-center font-sans ${
-                isCut ? "opacity-50" : ""
+                isCut ? "opacity-40" : isDimmed ? "opacity-60 hover:opacity-90 transition-opacity" : ""
               } ${
                 isSelected
                   ? "bg-zinc-800 border-zinc-700/90 ring-1 ring-zinc-700/60 shadow-lg text-zinc-100"
