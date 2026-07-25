@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 import { Tab, PanelState } from "../types/tab";
+import { useSettings } from "./SettingsContext";
+import { matchesShortcut } from "../utils/shortcut";
 
 export function getTabTitle(path: string): string {
   const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -52,32 +54,19 @@ interface TabContextType {
 const TabContext = createContext<TabContextType | null>(null);
 
 export function TabProvider({ children }: { children: ReactNode }) {
+  const { settings, updateSection, openSettings } = useSettings();
   const [tabs, setTabs] = useState<Tab[]>([initialTab]);
   const [activeTabIdState, setActiveTabIdState] = useState<string>(initialTab.id);
   const [isSplitViewOpen, setIsSplitViewOpen] = useState<boolean>(false);
   const [leftTabId, setLeftTabId] = useState<string>(initialTab.id);
   const [rightTabId, setRightTabId] = useState<string>(initialTab.id);
   const [activePanel, setActivePanelState] = useState<"left" | "right">("left");
-  const [showHiddenFiles, setShowHiddenFiles] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem("sack-show-hidden");
-      return saved !== null ? saved === "true" : true;
-    } catch {
-      return true;
-    }
-  });
+
+  const showHiddenFiles = settings.general.showHiddenFiles;
 
   const toggleShowHiddenFiles = useCallback(() => {
-    setShowHiddenFiles((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("sack-show-hidden", String(next));
-      } catch (err) {
-        console.error("Failed to save showHiddenFiles setting:", err);
-      }
-      return next;
-    });
-  }, []);
+    updateSection("general", { showHiddenFiles: !showHiddenFiles });
+  }, [showHiddenFiles, updateSection]);
 
   const activeTabId = isSplitViewOpen
     ? (activePanel === "left" ? leftTabId : rightTabId)
@@ -336,42 +325,48 @@ export function TabProvider({ children }: { children: ReactNode }) {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+\: Toggle Split View
-      if ((e.ctrlKey || e.metaKey) && (e.key === "\\" || e.code === "Backslash")) {
+      const { shortcuts } = settings;
+
+      if (matchesShortcut(e, shortcuts.toggleSplitView)) {
         e.preventDefault();
         toggleSplitView();
-      }
-      // Ctrl+H: Toggle hidden files
-      else if ((e.ctrlKey || e.metaKey) && (e.key === "h" || e.key === "H")) {
+      } else if (matchesShortcut(e, shortcuts.toggleHiddenFiles)) {
         e.preventDefault();
         toggleShowHiddenFiles();
-      }
-      // Ctrl+T: New tab
-      else if ((e.ctrlKey || e.metaKey) && (e.key === "t" || e.key === "T")) {
+      } else if (matchesShortcut(e, shortcuts.newTab)) {
         e.preventDefault();
         createTab();
-      }
-      // Ctrl+W: Close active tab
-      else if ((e.ctrlKey || e.metaKey) && (e.key === "w" || e.key === "W")) {
+      } else if (matchesShortcut(e, shortcuts.closeTab)) {
         e.preventDefault();
         if (tabs.length > 1) {
           closeTab(activeTabId);
         }
-      }
-      // Ctrl+Tab / Ctrl+Shift+Tab: Next / Previous tab
-      else if ((e.ctrlKey || e.metaKey) && e.key === "Tab") {
+      } else if (matchesShortcut(e, shortcuts.previousTab)) {
         e.preventDefault();
-        if (e.shiftKey) {
-          previousTab();
-        } else {
-          nextTab();
-        }
+        previousTab();
+      } else if (matchesShortcut(e, shortcuts.nextTab)) {
+        e.preventDefault();
+        nextTab();
+      } else if (matchesShortcut(e, shortcuts.openSettings)) {
+        e.preventDefault();
+        openSettings();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [createTab, closeTab, activeTabId, tabs.length, nextTab, previousTab, toggleSplitView, toggleShowHiddenFiles]);
+  }, [
+    createTab,
+    closeTab,
+    activeTabId,
+    tabs.length,
+    nextTab,
+    previousTab,
+    toggleSplitView,
+    toggleShowHiddenFiles,
+    openSettings,
+    settings,
+  ]);
 
   return (
     <TabContext.Provider

@@ -18,9 +18,11 @@ import {
   Eye,
   EyeOff,
   Code2,
+  Settings,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTabContext } from "../context/TabContext";
+import { useSettings } from "../context/SettingsContext";
 
 export interface BreadcrumbSegment {
   name: string;
@@ -132,6 +134,7 @@ export function Navbar({
   onViewModeChange,
 }: NavbarProps) {
   const { showHiddenFiles, toggleShowHiddenFiles } = useTabContext();
+  const { openSettings } = useSettings();
   const [inputValue, setInputValue] = useState(currentPath);
   const [isEditingPath, setIsEditingPath] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -516,6 +519,16 @@ export function Navbar({
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {/* Settings Button */}
+        <button
+          type="button"
+          onClick={() => openSettings()}
+          title="Configuración (Ctrl+,)"
+          className="p-1.5 text-gray-400 hover:text-gray-100 bg-gray-800 hover:bg-gray-750 border border-gray-700/80 rounded-lg transition-all shrink-0"
+        >
+          <Settings className="w-3.5 h-3.5" />
+        </button>
       </div>
     </header>
   );

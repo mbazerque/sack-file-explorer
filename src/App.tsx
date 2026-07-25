@@ -13,31 +13,23 @@ import { FileGrid } from "./components/FileGrid";
 import { Footer } from "./components/Footer";
 import { BottomTerminal } from "./components/BottomTerminal";
 import { TabTerminal } from "./components/TabTerminal";
+import { SettingsModal } from "./components/settings/SettingsModal";
+import { useSettings } from "./context/SettingsContext";
+import { matchesShortcut } from "./utils/shortcut";
 import "./App.css";
 
 function App() {
   const { tabs, activeTab, createTerminalTab, setActivePanel, toggleSplitView } = useTabContext();
   const { clipboard, copySelected, cutSelected, clearClipboard } = useClipboard();
+  const { settings, updateSection, openSettings } = useSettings();
 
   const [isBottomTerminalOpen, setIsBottomTerminalOpen] = useState(false);
   const [bottomSessionId] = useState(() => `session-bottom-${Date.now()}`);
 
-  const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
-    try {
-      const saved = localStorage.getItem("sack-view-mode");
-      return saved === "grid" ? "grid" : "table";
-    } catch {
-      return "table";
-    }
-  });
+  const viewMode = settings.appearance.viewMode;
 
   const handleViewModeChange = (mode: "table" | "grid") => {
-    setViewMode(mode);
-    try {
-      localStorage.setItem("sack-view-mode", mode);
-    } catch (err) {
-      console.error("Failed to save view mode:", err);
-    }
+    updateSection("appearance", { viewMode: mode });
   };
 
   const leftNav = useNavigation("left");
@@ -55,25 +47,30 @@ function App() {
   // Global Navigation & Core Operations Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
+      const { shortcuts, general } = settings;
+
       const isInputFocused =
         document.activeElement instanceof HTMLInputElement ||
         document.activeElement instanceof HTMLTextAreaElement ||
         (document.activeElement as HTMLElement)?.isContentEditable ||
         (document.activeElement as HTMLElement)?.closest(".xterm") !== null;
 
-      // 1. Ctrl + L: Focus address bar in edit mode
-      if ((e.ctrlKey || e.metaKey) && (e.key === "l" || e.key === "L")) {
+      // 1. Focus address bar
+      if (matchesShortcut(e, shortcuts.focusAddressBar)) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("focus-address-bar"));
         return;
       }
 
-      // 2. Ctrl + J or Ctrl + ~ / Ctrl + ` to toggle bottom terminal
-      const isTerminalShortcut =
-        (e.ctrlKey || e.metaKey) &&
-        (e.key === "j" || e.key === "J" || e.code === "KeyJ" || e.code === "Backquote" || e.key === "~" || e.key === "`");
+      // 2. Open Settings
+      if (matchesShortcut(e, shortcuts.openSettings)) {
+        e.preventDefault();
+        openSettings();
+        return;
+      }
 
-      if (isTerminalShortcut) {
+      // 3. Toggle bottom terminal
+      if (matchesShortcut(e, shortcuts.toggleTerminal)) {
         e.preventDefault();
         setIsBottomTerminalOpen((prev) => !prev);
         return;
@@ -82,22 +79,22 @@ function App() {
       // Skip remaining navigation/file operation hotkeys if user is typing in an input/textarea/terminal
       if (isInputFocused) return;
 
-      // 3. Ctrl + C: Copy selected items to clipboard
-      if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) {
+      // 4. Copy selected items to clipboard
+      if (matchesShortcut(e, shortcuts.copy)) {
         if (activeNav.selectedItems.length > 0) {
           e.preventDefault();
           copySelected(activeNav.selectedItems, activeNav.currentPath);
         }
       }
-      // 4. Ctrl + X: Cut selected items to clipboard
-      else if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) {
+      // 5. Cut selected items to clipboard
+      else if (matchesShortcut(e, shortcuts.cut)) {
         if (activeNav.selectedItems.length > 0) {
           e.preventDefault();
           cutSelected(activeNav.selectedItems, activeNav.currentPath);
         }
       }
-      // 5. Ctrl + V: Paste clipboard contents
-      else if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
+      // 6. Paste clipboard contents
+      else if (matchesShortcut(e, shortcuts.paste)) {
         if (clipboard && clipboard.items.length > 0) {
           e.preventDefault();
           try {
@@ -124,22 +121,25 @@ function App() {
           }
         }
       }
-      // 6. F2: Trigger inline rename
-      else if (e.key === "F2") {
+      // 7. Trigger inline rename
+      else if (matchesShortcut(e, shortcuts.rename)) {
         if (activeNav.selectedItems.length > 0 || activeNav.selectedItem) {
           e.preventDefault();
           window.dispatchEvent(new CustomEvent("trigger-inline-rename"));
         }
       }
-      // 7. Delete: Trash selected items to Recycle Bin
+      // 8. Delete: Trash selected items to Recycle Bin
       else if (e.key === "Delete" || e.code === "Delete") {
         if (activeNav.selectedItems.length > 0) {
           e.preventDefault();
-          const confirmDelete = window.confirm(
-            activeNav.selectedItems.length === 1
-              ? `¿Mover "${activeNav.selectedItems[0].name}" a la Papelera de Reciclaje?`
-              : `¿Mover ${activeNav.selectedItems.length} elementos a la Papelera de Reciclaje?`
-          );
+          let confirmDelete = true;
+          if (general.confirmBeforeDelete) {
+            confirmDelete = window.confirm(
+              activeNav.selectedItems.length === 1
+                ? `¿Mover "${activeNav.selectedItems[0].name}" a la Papelera de Reciclaje?`
+                : `¿Mover ${activeNav.selectedItems.length} elementos a la Papelera de Reciclaje?`
+            );
+          }
           if (confirmDelete) {
             try {
               for (const item of activeNav.selectedItems) {
@@ -463,6 +463,9 @@ function App() {
         selectedItems={activeNav.selectedItems}
         isScanning={activeScanning}
       />
+
+      {/* Global Settings Modal Overlay */}
+      <SettingsModal />
     </div>
   );
 }

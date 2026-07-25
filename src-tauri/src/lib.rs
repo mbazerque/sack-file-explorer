@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::UNIX_EPOCH;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 
@@ -472,6 +472,25 @@ fn close_terminal_session(
     Ok(())
 }
 
+#[tauri::command]
+fn load_settings(app: AppHandle) -> Result<String, String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings_path = app_data.join("settings.json");
+    if settings_path.exists() {
+        fs::read_to_string(&settings_path).map_err(|e| format!("Failed to read settings: {}", e))
+    } else {
+        Ok("{}".into())
+    }
+}
+
+#[tauri::command]
+fn save_settings(app: AppHandle, json_content: String) -> Result<(), String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&app_data).map_err(|e| format!("Failed to create app_data_dir: {}", e))?;
+    let settings_path = app_data.join("settings.json");
+    fs::write(&settings_path, json_content).map_err(|e| format!("Failed to write settings: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -494,6 +513,8 @@ pub fn run() {
             write_terminal_data,
             resize_terminal,
             close_terminal_session,
+            load_settings,
+            save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fallback de comparación por nombre cuando la columna principal devuelve cero, evitando orden no determinista.
 
 ### Added
+- **Arquitectura de Configuración y Persistencia Nativa ([SettingsContext.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/context/SettingsContext.tsx) & [SettingsModal.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/settings/SettingsModal.tsx))**:
+  - Implementación de la persistencia nativa JSON en `%APPDATA%\com.bazer.sack\settings.json` mediante comandos IPC Tauri (`load_settings` / `save_settings`) con migración automática desde `localStorage`.
+  - Definición de `SettingsConfig` con 4 secciones estructuradas (`general`, `appearance`, `terminal`, `shortcuts`).
+  - Creación del `SettingsProvider` y del hook `useSettings()` con puerta de carga `isLoaded` en `main.tsx` para evitar parpadeos de defaults desincronizados.
+  - Implementación del helper `matchesShortcut()` en `src/utils/shortcut.ts` para vinculación dinámica de 13 atajos de teclado personalizables.
+  - Creación de componentes modulares en `src/components/settings/`: `SettingsModal`, `SettingsSidebar`, `GeneralSettings`, `AppearanceSettings`, `TerminalSettings`, `ShortcutsSettings` y primitivos UI (`ToggleSwitch`, `SelectDropdown`, `ShortcutInput`).
 - **VS Code Integration ([Navbar.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/Navbar.tsx) & [ContextMenu.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/ContextMenu.tsx))**:
   - Added compact VS Code action button in Topbar next to Split View with tooltip "Open in VS Code" executing `code .` in current directory via IPC.
   - Added "Open in VS Code" option in Context Menu when right-clicking files or folders executing `code "<target_path>"`.
