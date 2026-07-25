@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   Folder,
   File,
@@ -16,9 +16,11 @@ import {
   Search,
   Zap,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import { FileItem, FileInfo } from "../types/file";
 import { ContextMenu } from "./ContextMenu";
 import { QuickPreviewModal } from "./QuickPreviewModal";
+import { useClipboard } from "../context/ClipboardContext";
 
 export type ListItem = FileItem | FileInfo;
 
@@ -27,7 +29,12 @@ interface FileListProps {
   isScanning: boolean;
   errorMsg: string | null;
   selectedItem: ListItem | null;
+  selectedItems?: ListItem[];
   onSelectItem: (item: ListItem | null) => void;
+  onSelectSingle?: (item: ListItem | null, index?: number) => void;
+  onToggleSelect?: (item: ListItem, index: number) => void;
+  onRangeSelect?: (index: number, allFiles: ListItem[]) => void;
+  onClearSelection?: () => void;
   onNavigate: (path: string) => void;
   onRefresh: () => void;
   currentPath: string;
@@ -72,7 +79,6 @@ function formatBreadcrumbs(path: string): string {
   const parts = path.split(/[/\\]+/).filter(Boolean);
   if (parts.length === 0) return path;
 
-  // For Windows paths like C:
   if (parts[0].endsWith(":")) {
     parts[0] = parts[0].toUpperCase();
   }
@@ -85,7 +91,7 @@ function formatDate(timestamp: number | null, compact: boolean = false): string 
   if (compact) {
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = String(date.getFullYear()).slice(-2); // YY format
+    const year = String(date.getFullYear()).slice(-2);
     const hours = String(date.getHours()).padStart(2, "0");
     const minutes = String(date.getMinutes()).padStart(2, "0");
     return `${day}/${month}/${year} ${hours}:${minutes}`;
@@ -107,6 +113,22 @@ function renderFileIcon(item: ListItem) {
   const ext = getFileExtension(item.name);
 
   switch (ext) {
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "gif":
+    case "svg":
+    case "webp":
+    case "ico":
+      return <Image className="w-4 h-4 text-emerald-400 shrink-0" />;
+
+    case "txt":
+    case "md":
+    case "pdf":
+    case "doc":
+    case "docx":
+      return <FileText className="w-4 h-4 text-blue-400 shrink-0" />;
+
     case "js":
     case "ts":
     case "tsx":
@@ -118,45 +140,35 @@ function renderFileIcon(item: ListItem) {
     case "py":
     case "c":
     case "cpp":
-    case "go":
-    case "sh":
-      return <FileCode className="w-4 h-4 text-cyan-400 shrink-0" />;
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "svg":
-    case "webp":
-    case "ico":
-      return <Image className="w-4 h-4 text-purple-400 shrink-0" />;
-    case "pdf":
-    case "txt":
-    case "md":
-    case "doc":
-    case "docx":
-      return <FileText className="w-4 h-4 text-emerald-400 shrink-0" />;
+      return <FileCode className="w-4 h-4 text-purple-400 shrink-0" />;
+
     case "zip":
-    case "rar":
-    case "7z":
     case "tar":
     case "gz":
-      return <Archive className="w-4 h-4 text-orange-400 shrink-0" />;
+    case "rar":
+    case "7z":
+      return <Archive className="w-4 h-4 text-amber-500 shrink-0" />;
+
     case "mp3":
     case "wav":
     case "ogg":
     case "flac":
-      return <Music className="w-4 h-4 text-green-400 shrink-0" />;
+      return <Music className="w-4 h-4 text-pink-400 shrink-0" />;
+
     case "mp4":
     case "mkv":
     case "avi":
+    case "mov":
     case "webm":
-      return <Video className="w-4 h-4 text-rose-400 shrink-0" />;
+      return <Video className="w-4 h-4 text-red-400 shrink-0" />;
+
     case "exe":
-    case "msi":
     case "bat":
     case "cmd":
     case "ps1":
-      return <Terminal className="w-4 h-4 text-yellow-400 shrink-0" />;
+    case "sh":
+      return <Terminal className="w-4 h-4 text-cyan-400 shrink-0" />;
+
     default:
       return <File className="w-4 h-4 text-gray-400 shrink-0" />;
   }
@@ -167,7 +179,12 @@ export function FileList({
   isScanning,
   errorMsg,
   selectedItem,
+  selectedItems = [],
   onSelectItem,
+  onSelectSingle,
+  onToggleSelect,
+  onRangeSelect,
+  onClearSelection,
   onNavigate,
   onRefresh,
   currentPath,
@@ -180,65 +197,130 @@ export function FileList({
   isActivePanel = true,
   onPanelFocus,
 }: FileListProps) {
-  const [sortColumn, setSortColumn] = useState<SortColumn>(
-    isSearchMode && useFuzzy ? "score" : "name"
-  );
-  const [sortDirection, setSortDirection] = useState<SortDirection>(
-    isSearchMode && useFuzzy ? "desc" : "asc"
-  );
+  const { clipboard } = useClipboard();
+
+  const [sortColumn, setSortColumn] = useState<SortColumn>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     item: ListItem;
   } | null>(null);
+
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // Inline Rename State
+  const [editingItemName, setEditingItemName] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Listen to trigger-inline-rename
+  useEffect(() => {
+    const handleTriggerRename = () => {
+      const activeItem = (selectedItems && selectedItems[0]) || selectedItem;
+      if (activeItem) {
+        setEditingItemName(activeItem.name);
+        setEditingText(activeItem.name);
+      }
+    };
+    window.addEventListener("trigger-inline-rename", handleTriggerRename);
+    return () => window.removeEventListener("trigger-inline-rename", handleTriggerRename);
+  }, [selectedItem, selectedItems]);
+
+  // Focus and select base name on editing start
+  useEffect(() => {
+    if (editingItemName && renameInputRef.current) {
+      renameInputRef.current.focus();
+      const dotIndex = editingItemName.lastIndexOf(".");
+      if (dotIndex > 0) {
+        renameInputRef.current.setSelectionRange(0, dotIndex);
+      } else {
+        renameInputRef.current.select();
+      }
+    }
+  }, [editingItemName]);
+
+  const handleConfirmRename = async (item: ListItem) => {
+    if (!editingItemName) return;
+    const trimmed = editingText.trim();
+    if (!trimmed || trimmed === item.name) {
+      setEditingItemName(null);
+      return;
+    }
+
+    const fileInfo = item as Partial<FileInfo>;
+    const oldPath =
+      fileInfo.path ||
+      (currentPath.endsWith("/") || currentPath.endsWith("\\")
+        ? `${currentPath}${item.name}`
+        : `${currentPath}/${item.name}`);
+
+    const normOld = oldPath.replace(/\\/g, "/");
+    const lastSlash = normOld.lastIndexOf("/");
+    const parentDir = lastSlash > 0 ? normOld.substring(0, lastSlash) : currentPath;
+
+    const newPath =
+      parentDir.endsWith("/") || parentDir.endsWith("\\")
+        ? `${parentDir}${trimmed}`
+        : `${parentDir}/${trimmed}`;
+
+    try {
+      await invoke("rename_item", { oldPath, newPath });
+      setEditingItemName(null);
+      onRefresh();
+    } catch (err) {
+      alert(`Error al renombrar: ${String(err)}`);
+      setEditingItemName(null);
+    }
+  };
 
   const handleHeaderClick = (column: SortColumn) => {
     if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortColumn(column);
-      setSortDirection(column === "score" ? "desc" : "asc");
+      setSortDirection("asc");
     }
   };
 
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
-      if (!isSearchMode && a.is_dir !== b.is_dir) {
-        return a.is_dir ? -1 : 1;
+      if (a.is_dir !== b.is_dir) {
+        return b.is_dir ? 1 : -1;
       }
 
-      const fileInfoA = a as Partial<FileInfo>;
-      const fileInfoB = b as Partial<FileInfo>;
+      let comparison = 0;
 
-      let cmp = 0;
-      if (sortColumn === "score") {
-        const scoreA = fileInfoA.score ?? 0;
-        const scoreB = fileInfoB.score ?? 0;
-        cmp = scoreA - scoreB;
-      } else if (sortColumn === "relative_path") {
-        const pathA = fileInfoA.relative_path || a.name;
-        const pathB = fileInfoB.relative_path || b.name;
-        cmp = pathA.localeCompare(pathB, undefined, { numeric: true, sensitivity: "base" });
-      } else if (sortColumn === "name") {
-        cmp = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+      if (sortColumn === "name") {
+        comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
       } else if (sortColumn === "modified_at") {
-        const timeA = a.modified_at || 0;
-        const timeB = b.modified_at || 0;
-        cmp = timeA - timeB;
+        const timeA = a.modified_at ?? 0;
+        const timeB = b.modified_at ?? 0;
+        comparison = timeA - timeB;
       } else if (sortColumn === "type") {
         const typeA = getFileTypeLabel(a);
         const typeB = getFileTypeLabel(b);
-        cmp = typeA.localeCompare(typeB);
+        comparison = typeA.localeCompare(typeB);
       } else if (sortColumn === "size") {
-        cmp = a.size - b.size;
+        const sizeA = a.is_dir ? -1 : a.size;
+        const sizeB = b.is_dir ? -1 : b.size;
+        comparison = sizeA - sizeB;
+      } else if (sortColumn === "relative_path") {
+        const pathA = (a as Partial<FileInfo>).relative_path || a.name;
+        const pathB = (b as Partial<FileInfo>).relative_path || b.name;
+        comparison = pathA.localeCompare(pathB);
+      } else if (sortColumn === "score") {
+        const scoreA = (a as Partial<FileInfo>).score ?? 0;
+        const scoreB = (b as Partial<FileInfo>).score ?? 0;
+        comparison = scoreA - scoreB;
       }
 
-      return sortDirection === "asc" ? cmp : -cmp;
+      return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [files, sortColumn, sortDirection, isSearchMode]);
+  }, [files, sortColumn, sortDirection]);
 
-  // Keyboard navigation & Quick Preview shortcut (Space, Esc, ArrowUp, ArrowDown)
+  // Keyboard navigation for Space preview & Arrow keys
   useEffect(() => {
     if (!isActivePanel) return;
 
@@ -246,12 +328,13 @@ export function FileList({
       const isInputFocused =
         document.activeElement instanceof HTMLInputElement ||
         document.activeElement instanceof HTMLTextAreaElement ||
-        (document.activeElement as HTMLElement)?.isContentEditable;
+        (document.activeElement as HTMLElement)?.isContentEditable ||
+        (document.activeElement as HTMLElement)?.closest(".xterm") !== null;
 
       if (isInputFocused) return;
 
       if (e.code === "Space" || e.key === " ") {
-        if (selectedItem) {
+        if (selectedItem || selectedItems.length > 0) {
           e.preventDefault();
           setIsPreviewOpen((prev) => !prev);
         }
@@ -263,31 +346,46 @@ export function FileList({
       } else if (e.key === "ArrowDown") {
         if (sortedFiles.length === 0) return;
         e.preventDefault();
-        const currentIndex = selectedItem ? sortedFiles.findIndex((f) => f.name === selectedItem.name) : -1;
+        const activeItem = selectedItems[0] || selectedItem;
+        const currentIndex = activeItem ? sortedFiles.findIndex((f) => f.name === activeItem.name) : -1;
         const nextIndex = currentIndex < sortedFiles.length - 1 ? currentIndex + 1 : 0;
-        onSelectItem(sortedFiles[nextIndex]);
+        if (onSelectSingle) onSelectSingle(sortedFiles[nextIndex], nextIndex);
+        else onSelectItem(sortedFiles[nextIndex]);
       } else if (e.key === "ArrowUp") {
         if (sortedFiles.length === 0) return;
         e.preventDefault();
-        const currentIndex = selectedItem ? sortedFiles.findIndex((f) => f.name === selectedItem.name) : -1;
+        const activeItem = selectedItems[0] || selectedItem;
+        const currentIndex = activeItem ? sortedFiles.findIndex((f) => f.name === activeItem.name) : -1;
         const prevIndex = currentIndex > 0 ? currentIndex - 1 : sortedFiles.length - 1;
-        onSelectItem(sortedFiles[prevIndex]);
+        if (onSelectSingle) onSelectSingle(sortedFiles[prevIndex], prevIndex);
+        else onSelectItem(sortedFiles[prevIndex]);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isActivePanel, selectedItem, isPreviewOpen, sortedFiles, onSelectItem]);
+  }, [isActivePanel, selectedItem, selectedItems, isPreviewOpen, sortedFiles, onSelectItem, onSelectSingle]);
 
   const handleContainerClick = () => {
     if (onPanelFocus) onPanelFocus();
-    onSelectItem(null);
+    if (onClearSelection) onClearSelection();
+    else onSelectItem(null);
   };
 
-  const handleRowClick = (item: ListItem, e: React.MouseEvent) => {
+  const handleRowClick = (item: ListItem, index: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (onPanelFocus) onPanelFocus();
-    onSelectItem(item);
+
+    if (e.ctrlKey || e.metaKey) {
+      if (onToggleSelect) onToggleSelect(item, index);
+      else onSelectItem(item);
+    } else if (e.shiftKey) {
+      if (onRangeSelect) onRangeSelect(index, sortedFiles);
+      else onSelectItem(item);
+    } else {
+      if (onSelectSingle) onSelectSingle(item, index);
+      else onSelectItem(item);
+    }
   };
 
   const handleRowDoubleClick = (item: ListItem) => {
@@ -305,11 +403,17 @@ export function FileList({
     }
   };
 
-  const handleContextMenu = (item: ListItem, e: React.MouseEvent) => {
+  const handleContextMenu = (item: ListItem, index: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (onPanelFocus) onPanelFocus();
-    onSelectItem(item);
+
+    const isAlreadySelected = selectedItems.some((it) => it.name === item.name);
+    if (!isAlreadySelected) {
+      if (onSelectSingle) onSelectSingle(item, index);
+      else onSelectItem(item);
+    }
+
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -364,10 +468,7 @@ export function FileList({
 
           <div className="divide-y divide-gray-800/60">
             {Array.from({ length: 6 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="px-4 py-3 grid grid-cols-12 gap-4 items-center animate-pulse"
-              >
+              <div key={idx} className="px-4 py-3 grid grid-cols-12 gap-4 items-center animate-pulse">
                 <div className="col-span-5 flex items-center gap-3">
                   <div className="w-4 h-4 bg-gray-700/80 rounded" />
                   <div className="h-4 bg-gray-700/80 rounded w-1/2" />
@@ -403,6 +504,8 @@ export function FileList({
       </div>
     );
   }
+
+  const normCurrentPath = currentPath.replace(/\\/g, "/").toLowerCase();
 
   return (
     <div className={`p-4 ${panelContainerStyles}`} onClick={handleContainerClick}>
@@ -503,7 +606,15 @@ export function FileList({
           <tbody className="divide-y divide-gray-800/60 font-sans">
             {sortedFiles.map((item, index) => {
               const fileInfo = item as Partial<FileInfo>;
-              const isSelected = selectedItem?.name === item.name;
+
+              const isSelected = selectedItems && selectedItems.length > 0
+                ? selectedItems.some((it) => it.name === item.name)
+                : selectedItem?.name === item.name;
+
+              const isCut =
+                clipboard?.action === "cut" &&
+                clipboard.sourcePath.replace(/\\/g, "/").toLowerCase() === normCurrentPath &&
+                clipboard.items.some((it) => it.name === item.name);
 
               return (
                 <tr
@@ -526,31 +637,48 @@ export function FileList({
                       e.dataTransfer.effectAllowed = "copy";
                     }
                   }}
-                  onClick={(e) => handleRowClick(item, e)}
+                  onClick={(e) => handleRowClick(item, index, e)}
                   onDoubleClick={() => handleRowDoubleClick(item)}
-                  onContextMenu={(e) => handleContextMenu(item, e)}
+                  onContextMenu={(e) => handleContextMenu(item, index, e)}
                   className={`transition-colors text-gray-200 cursor-pointer ${
+                    isCut ? "opacity-50" : ""
+                  } ${
                     isSelected
                       ? "bg-blue-600/30 text-white font-medium ring-1 ring-blue-500/50"
                       : "hover:bg-gray-800/60"
                   }`}
                 >
-                  {/* Name column */}
+                  {/* Name column with Inline Renaming support */}
                   <td className="py-2.5 px-4">
                     <div className="flex items-center gap-3">
                       {renderFileIcon(item)}
-                      <span
-                        className={`truncate ${
-                          isSelected
-                            ? "text-blue-200"
-                            : item.is_dir
-                            ? "text-gray-100 font-medium"
-                            : "text-gray-300"
-                        }`}
-                        title={fileInfo.path || item.name}
-                      >
-                        {item.name}
-                      </span>
+                      {editingItemName === item.name ? (
+                        <input
+                          ref={renameInputRef}
+                          type="text"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleConfirmRename(item);
+                            if (e.key === "Escape") setEditingItemName(null);
+                          }}
+                          onBlur={() => handleConfirmRename(item)}
+                          className="bg-gray-800 text-gray-100 border border-blue-500 rounded px-2 py-0.5 text-xs focus:outline-none w-full font-sans"
+                        />
+                      ) : (
+                        <span
+                          className={`truncate ${
+                            isSelected
+                              ? "text-blue-200"
+                              : item.is_dir
+                              ? "text-gray-100 font-medium"
+                              : "text-gray-300"
+                          }`}
+                          title={fileInfo.path || item.name}
+                        >
+                          {item.name}
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -610,12 +738,14 @@ export function FileList({
         />
       )}
 
-      <QuickPreviewModal
-        item={selectedItem}
-        currentPath={currentPath}
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-      />
+      {isPreviewOpen && (selectedItem || selectedItems[0]) && (
+        <QuickPreviewModal
+          item={selectedItems[0] || selectedItem!}
+          currentPath={currentPath}
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
     </div>
   );
 }

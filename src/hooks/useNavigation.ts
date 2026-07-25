@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileItem } from "../types/file";
 import { useTabContext } from "../context/TabContext";
@@ -21,7 +21,8 @@ export function useNavigation(panelSide?: "left" | "right") {
   const panel = side === "left" ? activeTab.leftPanel : activeTab.rightPanel;
 
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
+  const [selectedItems, setSelectedItems] = useState<FileItem[]>([]);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -29,10 +30,51 @@ export function useNavigation(panelSide?: "left" | "right") {
   const history = panel.history;
   const historyIndex = panel.historyIndex;
 
+  const selectedItem = selectedItems[0] || null;
+
+  const selectSingle = useCallback((item: FileItem | null, index?: number) => {
+    if (!item) {
+      setSelectedItems([]);
+      setLastSelectedIndex(null);
+    } else {
+      setSelectedItems([item]);
+      if (typeof index === "number") setLastSelectedIndex(index);
+    }
+  }, []);
+
+  const toggleSelect = useCallback((item: FileItem, index: number) => {
+    setSelectedItems((prev) => {
+      const exists = prev.some((it) => it.name === item.name);
+      if (exists) {
+        return prev.filter((it) => it.name !== item.name);
+      } else {
+        return [...prev, item];
+      }
+    });
+    setLastSelectedIndex(index);
+  }, []);
+
+  const rangeSelect = useCallback(
+    (targetIndex: number, allFiles: FileItem[]) => {
+      if (allFiles.length === 0) return;
+      const start = lastSelectedIndex !== null ? Math.min(lastSelectedIndex, targetIndex) : 0;
+      const end = lastSelectedIndex !== null ? Math.max(lastSelectedIndex, targetIndex) : targetIndex;
+      const range = allFiles.slice(start, end + 1);
+      setSelectedItems(range);
+    },
+    [lastSelectedIndex]
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedItems([]);
+    setLastSelectedIndex(null);
+  }, []);
+
   const fetchDirectory = useCallback(async (targetPath: string) => {
     setIsScanning(true);
     setErrorMsg(null);
-    setSelectedItem(null);
+    setSelectedItems([]);
+    setLastSelectedIndex(null);
     try {
       const result = await invoke<FileItem[]>("scan_directory", { path: targetPath });
       setFiles(result);
@@ -112,7 +154,12 @@ export function useNavigation(panelSide?: "left" | "right") {
     currentPath,
     files,
     selectedItem,
-    setSelectedItem,
+    selectedItems,
+    setSelectedItems,
+    selectSingle,
+    toggleSelect,
+    rangeSelect,
+    clearSelection,
     isScanning,
     errorMsg,
     canGoBack,

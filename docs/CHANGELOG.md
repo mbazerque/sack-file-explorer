@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Submenú desplegable 📁 "Agregar a Grupo..." que lista dinámicamente todos los grupos personalizados existentes en la barra lateral.
   - Opción ➕ "Nuevo Grupo..." al vuelo con modal/prompt para crear una nueva sección organizada en la Sidebar e insertarle el elemento seleccionado inmediatamente.
   - Submenú ➡️ "Mover a grupo..." y "Quitar de Favoritos" dentro del menú contextual de marcadores en la propia Sidebar.
+- **Operaciones Core de Navegación y Archivos**:
+  - **Selección Múltiple (Multi-selection)**: Soporte completo para `Ctrl + Clic` (alternar selección individual) y `Shift + Clic` (selección en rango continuo), actualizando el contador del footer dinámicamente con la cantidad de elementos seleccionados y el peso total acumulado.
+  - **Operaciones de Portapapeles (`ClipboardContext.tsx`)**: Contexto global del portapapeles con `Ctrl + C` (copiar) y `Ctrl + X` (cortar). Los elementos cortados se atenúan visualmente con `opacity-50` en la tabla principal. Pegado con `Ctrl + V` mediante IPC de Tauri (`copy_item` y `move_item`).
+  - **Renombrado Inline (F2)**: Al presionar `F2` o elegir "Renombrar" en el menú contextual, la celda se transforma en un campo de texto con la selección automática del nombre base del archivo (excluyendo la extensión). Confirmación con `Enter` / `onBlur` vía IPC de Rust (`rename_item`) y cancelación con `Esc`.
+  - **Eliminación a Papelera (Delete)**: Atajo `Delete` para mover archivos o múltiples selecciones directamente a la Papelera de Reciclaje del sistema ($Recycle.Bin en Windows vía `SHFileOperationW`).
 
 ## [v0.4.0] - 2026-07-25 - Terminal & CLI Release
 

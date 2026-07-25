@@ -225,6 +225,70 @@ fn move_item(src: String, dst_dir: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn rename_item(old_path: String, new_path: String) -> Result<(), String> {
+    let old_p = Path::new(&old_path);
+    let new_p = Path::new(&new_path);
+    fs::rename(old_p, new_p).map_err(|e| format!("Failed to rename item: {}", e))
+}
+
+#[tauri::command]
+fn trash_item(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+
+        #[repr(C, packed(2))]
+        struct SHFILEOPSTRUCTW {
+            hwnd: *mut std::ffi::c_void,
+            w_func: u32,
+            p_from: *const u16,
+            p_to: *const u16,
+            f_flags: u16,
+            f_any_operations_aborted: i32,
+            h_name_mappings: *mut std::ffi::c_void,
+            lpsz_progress_title: *const u16,
+        }
+
+        const FO_DELETE: u32 = 0x0003;
+        const FOF_ALLOWUNDO: u16 = 0x0040;
+        const FOF_NOCONFIRMATION: u16 = 0x0010;
+        const FOF_SILENT: u16 = 0x0004;
+
+        extern "system" {
+            fn SHFileOperationW(lpFileOp: *mut SHFILEOPSTRUCTW) -> i32;
+        }
+
+        let mut wide: Vec<u16> = OsStr::new(&path)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .chain(std::iter::once(0))
+            .collect();
+
+        let mut file_op = SHFILEOPSTRUCTW {
+            hwnd: std::ptr::null_mut(),
+            w_func: FO_DELETE,
+            p_from: wide.as_mut_ptr(),
+            p_to: std::ptr::null(),
+            f_flags: FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT,
+            f_any_operations_aborted: 0,
+            h_name_mappings: std::ptr::null_mut(),
+            lpsz_progress_title: std::ptr::null(),
+        };
+
+        let res = unsafe { SHFileOperationW(&mut file_op) };
+        if res != 0 || file_op.f_any_operations_aborted != 0 {
+            delete_item(path)?;
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        delete_item(path)
+    }
+}
+
+#[tauri::command]
 fn read_file_content(path: String) -> Result<String, String> {
     let metadata = fs::metadata(&path).map_err(|e| format!("Failed to read metadata: {}", e))?;
     if metadata.is_dir() {
@@ -401,6 +465,8 @@ pub fn run() {
             delete_item,
             copy_item,
             move_item,
+            rename_item,
+            trash_item,
             search::search_files,
             read_file_content,
             get_system_drives,

@@ -9,6 +9,7 @@ import {
   FolderPlus,
   ChevronRight,
   Plus,
+  Edit2,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileItem, FileInfo } from "../types/file";
@@ -255,6 +256,19 @@ export function ContextMenu({
           >
             <Copy className="w-4 h-4 text-gray-400 shrink-0" />
             <span>Copiar ruta</span>
+          </button>
+
+          {/* Rename item */}
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("trigger-inline-rename"));
+              onClose();
+            }}
+            className="w-full px-3 py-1.5 text-left hover:bg-blue-600/20 hover:text-blue-300 flex items-center gap-2.5 transition-colors"
+          >
+            <Edit2 className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Renombrar (F2)</span>
           </button>
 
           {/* Open in Terminal */}

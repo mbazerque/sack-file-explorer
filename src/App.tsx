@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigation } from "./hooks/useNavigation";
 import { useSearch } from "./hooks/useSearch";
 import { useTabContext } from "./context/TabContext";
+import { useClipboard } from "./context/ClipboardContext";
+import { invoke } from "@tauri-apps/api/core";
+import { FileInfo } from "./types/file";
 import { TabBar } from "./components/TabBar";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
@@ -13,6 +16,8 @@ import "./App.css";
 
 function App() {
   const { tabs, activeTab, createTerminalTab, setActivePanel, toggleSplitView } = useTabContext();
+  const { clipboard, copySelected, cutSelected, clearClipboard } = useClipboard();
+
   const [isBottomTerminalOpen, setIsBottomTerminalOpen] = useState(false);
   const [bottomSessionId] = useState(() => `session-bottom-${Date.now()}`);
 
@@ -28,9 +33,9 @@ function App() {
   const activeNav = activeSide === "left" ? leftNav : rightNav;
   const activeSearch = activeSide === "left" ? leftSearch : rightSearch;
 
-  // Global Navigation Keyboard Shortcuts
+  // Global Navigation & Core Operations Keyboard Shortcuts
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
       const isInputFocused =
         document.activeElement instanceof HTMLInputElement ||
         document.activeElement instanceof HTMLTextAreaElement ||
@@ -55,31 +60,108 @@ function App() {
         return;
       }
 
-      // Skip remaining navigation hotkeys if user is typing in an input, textarea, editable element, or terminal
+      // Skip remaining navigation/file operation hotkeys if user is typing in an input/textarea/terminal
       if (isInputFocused) return;
 
-      // 3. Alt + Left Arrow or Backspace: Go Back
-      if ((e.altKey && (e.key === "ArrowLeft" || e.code === "ArrowLeft")) || e.key === "Backspace") {
+      // 3. Ctrl + C: Copy selected items to clipboard
+      if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) {
+        if (activeNav.selectedItems.length > 0) {
+          e.preventDefault();
+          copySelected(activeNav.selectedItems, activeNav.currentPath);
+        }
+      }
+      // 4. Ctrl + X: Cut selected items to clipboard
+      else if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) {
+        if (activeNav.selectedItems.length > 0) {
+          e.preventDefault();
+          cutSelected(activeNav.selectedItems, activeNav.currentPath);
+        }
+      }
+      // 5. Ctrl + V: Paste clipboard contents
+      else if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
+        if (clipboard && clipboard.items.length > 0) {
+          e.preventDefault();
+          try {
+            for (const item of clipboard.items) {
+              const fileInfo = item as Partial<FileInfo>;
+              const srcPath =
+                fileInfo.path ||
+                (clipboard.sourcePath.endsWith("/") || clipboard.sourcePath.endsWith("\\")
+                  ? `${clipboard.sourcePath}${item.name}`
+                  : `${clipboard.sourcePath}/${item.name}`);
+
+              if (clipboard.action === "copy") {
+                await invoke("copy_item", { src: srcPath, dstDir: activeNav.currentPath });
+              } else if (clipboard.action === "cut") {
+                await invoke("move_item", { src: srcPath, dstDir: activeNav.currentPath });
+              }
+            }
+            if (clipboard.action === "cut") {
+              clearClipboard();
+            }
+            await activeNav.refresh();
+          } catch (err) {
+            alert(`Error al pegar elementos: ${String(err)}`);
+          }
+        }
+      }
+      // 6. F2: Trigger inline rename
+      else if (e.key === "F2") {
+        if (activeNav.selectedItems.length > 0 || activeNav.selectedItem) {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent("trigger-inline-rename"));
+        }
+      }
+      // 7. Delete: Trash selected items to Recycle Bin
+      else if (e.key === "Delete" || e.code === "Delete") {
+        if (activeNav.selectedItems.length > 0) {
+          e.preventDefault();
+          const confirmDelete = window.confirm(
+            activeNav.selectedItems.length === 1
+              ? `¿Mover "${activeNav.selectedItems[0].name}" a la Papelera de Reciclaje?`
+              : `¿Mover ${activeNav.selectedItems.length} elementos a la Papelera de Reciclaje?`
+          );
+          if (confirmDelete) {
+            try {
+              for (const item of activeNav.selectedItems) {
+                const fileInfo = item as Partial<FileInfo>;
+                const itemPath =
+                  fileInfo.path ||
+                  (activeNav.currentPath.endsWith("/") || activeNav.currentPath.endsWith("\\")
+                    ? `${activeNav.currentPath}${item.name}`
+                    : `${activeNav.currentPath}/${item.name}`);
+                await invoke("trash_item", { path: itemPath });
+              }
+              activeNav.clearSelection();
+              await activeNav.refresh();
+            } catch (err) {
+              alert(`Error al mover a la Papelera de Reciclaje: ${String(err)}`);
+            }
+          }
+        }
+      }
+      // 8. Alt + Left Arrow or Backspace: Go Back
+      else if ((e.altKey && (e.key === "ArrowLeft" || e.code === "ArrowLeft")) || e.key === "Backspace") {
         if (activeNav.canGoBack) {
           e.preventDefault();
           activeNav.goBack();
         }
       }
-      // 4. Alt + Right Arrow: Go Forward
+      // 9. Alt + Right Arrow: Go Forward
       else if (e.altKey && (e.key === "ArrowRight" || e.code === "ArrowRight")) {
         if (activeNav.canGoForward) {
           e.preventDefault();
           activeNav.goForward();
         }
       }
-      // 5. Alt + Up Arrow: Go Up (Parent Directory)
+      // 10. Alt + Up Arrow: Go Up (Parent Directory)
       else if (e.altKey && (e.key === "ArrowUp" || e.code === "ArrowUp")) {
         if (activeNav.canGoUp) {
           e.preventDefault();
           activeNav.goUp();
         }
       }
-      // 6. Ctrl + R or F5: Refresh
+      // 11. Ctrl + R or F5: Refresh
       else if (((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R")) || e.key === "F5") {
         e.preventDefault();
         activeNav.refresh();
@@ -88,7 +170,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeNav]);
+  }, [activeNav, clipboard, copySelected, cutSelected, clearClipboard]);
 
   const handlePromoteToTab = () => {
     setIsBottomTerminalOpen(false);
@@ -176,7 +258,12 @@ function App() {
                   isScanning={activeScanning}
                   errorMsg={activeSearch.isSearchActive ? activeSearch.searchError : activeNav.errorMsg}
                   selectedItem={activeNav.selectedItem}
-                  onSelectItem={activeNav.setSelectedItem}
+                  selectedItems={activeNav.selectedItems}
+                  onSelectItem={activeNav.selectSingle}
+                  onSelectSingle={activeNav.selectSingle}
+                  onToggleSelect={activeNav.toggleSelect}
+                  onRangeSelect={activeNav.rangeSelect}
+                  onClearSelection={activeNav.clearSelection}
                   onNavigate={(path) => {
                     activeSearch.clearSearch();
                     activeNav.scanPath(path);
@@ -197,7 +284,12 @@ function App() {
                     isScanning={leftSearch.isSearchActive ? leftSearch.isSearching : leftNav.isScanning}
                     errorMsg={leftSearch.isSearchActive ? leftSearch.searchError : leftNav.errorMsg}
                     selectedItem={leftNav.selectedItem}
-                    onSelectItem={leftNav.setSelectedItem}
+                    selectedItems={leftNav.selectedItems}
+                    onSelectItem={leftNav.selectSingle}
+                    onSelectSingle={leftNav.selectSingle}
+                    onToggleSelect={leftNav.toggleSelect}
+                    onRangeSelect={leftNav.rangeSelect}
+                    onClearSelection={leftNav.clearSelection}
                     onNavigate={(path) => {
                       leftSearch.clearSearch();
                       leftNav.scanPath(path);
@@ -221,7 +313,12 @@ function App() {
                     isScanning={rightSearch.isSearchActive ? rightSearch.isSearching : rightNav.isScanning}
                     errorMsg={rightSearch.isSearchActive ? rightSearch.searchError : rightNav.errorMsg}
                     selectedItem={rightNav.selectedItem}
-                    onSelectItem={rightNav.setSelectedItem}
+                    selectedItems={rightNav.selectedItems}
+                    onSelectItem={rightNav.selectSingle}
+                    onSelectSingle={rightNav.selectSingle}
+                    onToggleSelect={rightNav.toggleSelect}
+                    onRangeSelect={rightNav.rangeSelect}
+                    onClearSelection={rightNav.clearSelection}
                     onNavigate={(path) => {
                       rightSearch.clearSearch();
                       rightNav.scanPath(path);
@@ -255,7 +352,12 @@ function App() {
       </div>
 
       {/* 4. Footer (100% width edge to edge) */}
-      <Footer files={activeFiles} selectedItem={activeNav.selectedItem} isScanning={activeScanning} />
+      <Footer
+        files={activeFiles}
+        selectedItem={activeNav.selectedItem}
+        selectedItems={activeNav.selectedItems}
+        isScanning={activeScanning}
+      />
     </div>
   );
 }
