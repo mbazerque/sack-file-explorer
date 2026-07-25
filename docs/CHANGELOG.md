@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Refactorización del Layout Principal (Full-Width Header & Footer)**:
+  - Reestructurada la disposición de `App.tsx` para que el Header (Navbar con la barra de navegación y búsqueda) y el Footer ocupen el 100% del ancho de borde a borde.
+  - Reubicada la barra lateral de Acceso Rápido (`Sidebar`) para que comience debajo del Header, quedando contenida en la sección central junto a la vista de archivos.
 - **Dimensiones de Ventana Iniciales Ampliadas**:
   - Incrementado el ancho predeterminado de la ventana a `1200px` (antes 1000px) y el alto a `780px` (antes 660px) en `src-tauri/tauri.conf.json`.
   - Establecido un ancho mínimo de `800px` y un alto mínimo de `520px` para asegurar una disposición holgada de Sidebar, Navbar y vista dividida (Split View).

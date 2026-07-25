@@ -52,8 +52,46 @@ function App() {
 
   return (
     <div className="h-screen w-screen bg-gray-950 text-gray-100 flex flex-col overflow-hidden font-sans">
+      {/* 1. Top Custom Titlebar with Tabs (100% width) */}
       <TabBar />
 
+      {/* 2. Top Navigation & Search Header (100% width edge to edge) */}
+      <div className="p-4 border-b border-gray-800 bg-gray-900 z-10 shadow-sm shrink-0 w-full">
+        <Navbar
+          currentPath={activeNav.currentPath}
+          isScanning={activeNav.isScanning}
+          canGoBack={activeNav.canGoBack}
+          canGoForward={activeNav.canGoForward}
+          canGoUp={activeNav.canGoUp}
+          onNavigate={(path) => {
+            activeSearch.clearSearch();
+            activeNav.scanPath(path);
+          }}
+          onGoBack={() => {
+            activeSearch.clearSearch();
+            activeNav.goBack();
+          }}
+          onGoForward={() => {
+            activeSearch.clearSearch();
+            activeNav.goForward();
+          }}
+          onGoUp={() => {
+            activeSearch.clearSearch();
+            activeNav.goUp();
+          }}
+          searchQuery={activeSearch.searchQuery}
+          onSearchChange={activeSearch.setSearchQuery}
+          useFuzzy={activeSearch.useFuzzy}
+          onToggleFuzzy={() => activeSearch.setUseFuzzy((prev) => !prev)}
+          isSearching={activeSearch.isSearching}
+          onClearSearch={activeSearch.clearSearch}
+          searchInputRef={activeSearch.inputRef}
+          isSplitViewOpen={isSplitViewOpen}
+          onToggleSplitView={toggleSplitView}
+        />
+      </div>
+
+      {/* 3. Central Content Area: Sidebar on left + File view on right */}
       <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
         <Sidebar
           onNavigate={(p) => {
@@ -63,44 +101,7 @@ function App() {
           currentPath={activeNav.currentPath}
         />
 
-        <div className="flex-1 flex flex-col min-w-0">
-
-        <div className="p-4 border-b border-gray-800 bg-gray-900 z-10 shadow-sm">
-          <Navbar
-            currentPath={activeNav.currentPath}
-            isScanning={activeNav.isScanning}
-            canGoBack={activeNav.canGoBack}
-            canGoForward={activeNav.canGoForward}
-            canGoUp={activeNav.canGoUp}
-            onNavigate={(path) => {
-              activeSearch.clearSearch();
-              activeNav.scanPath(path);
-            }}
-            onGoBack={() => {
-              activeSearch.clearSearch();
-              activeNav.goBack();
-            }}
-            onGoForward={() => {
-              activeSearch.clearSearch();
-              activeNav.goForward();
-            }}
-            onGoUp={() => {
-              activeSearch.clearSearch();
-              activeNav.goUp();
-            }}
-            searchQuery={activeSearch.searchQuery}
-            onSearchChange={activeSearch.setSearchQuery}
-            useFuzzy={activeSearch.useFuzzy}
-            onToggleFuzzy={() => activeSearch.setUseFuzzy((prev) => !prev)}
-            isSearching={activeSearch.isSearching}
-            onClearSearch={activeSearch.clearSearch}
-            searchInputRef={activeSearch.inputRef}
-            isSplitViewOpen={isSplitViewOpen}
-            onToggleSplitView={toggleSplitView}
-          />
-        </div>
-
-        <main className="flex-1 overflow-y-auto bg-gray-950 relative">
+        <main className="flex-1 overflow-y-auto bg-gray-950 relative min-w-0">
           {!isSplitViewOpen ? (
             // Single Panel View
             <FileList
@@ -173,12 +174,12 @@ function App() {
             </div>
           )}
         </main>
-
-        <Footer files={activeFiles} selectedItem={activeNav.selectedItem} isScanning={activeScanning} />
       </div>
+
+      {/* 4. Footer (100% width edge to edge) */}
+      <Footer files={activeFiles} selectedItem={activeNav.selectedItem} isScanning={activeScanning} />
     </div>
-  </div>
-);
+  );
 }
 
 export default App;
