@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-07-24
+
 ### Changed
 - **Refactorización del Layout Principal (Full-Width Header & Footer)**:
   - Reestructurada la disposición de `App.tsx` para que el Header (Navbar con la barra de navegación y búsqueda) y el Footer ocupen el 100% del ancho de borde a borde.

@@ -1,4 +1,4 @@
-﻿import { FileItem, FileInfo } from "../types/file";
+import { FileItem, FileInfo } from "../types/file";
 
 export type ListItem = FileItem | FileInfo;
 
@@ -57,7 +57,7 @@ export function Footer({ files, selectedItem, isScanning }: FooterProps) {
       </div>
 
       <div className="text-gray-500 font-mono text-[11px]">
-        Sack v0.2.0
+        Sack v0.3.0
       </div>
     </footer>
   );
