@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Navegación Híbrida de Pestañas (Hybrid Tab Navigation)**:
+  - Implementado comportamiento dinámico de ancho por pestaña: máximo de `200px` y mínimo estricto de `120px` para garantizar visibilidad de icono, título truncado y botón de cierre.
+  - Habilitado scroll horizontal en la barra de pestañas (`overflow-x-auto`) con barra de desplazamiento ocultada mediante utilidad `scrollbar-none`.
+  - Registrado listener de evento `wheel` para convertir scroll vertical del ratón en scroll horizontal (`scrollLeft`) en el contenedor de pestañas.
+  - Mantenida la región de arrastre (`data-tauri-drag-region`) en los espacios vacíos del contenedor para no romper el arrastre de ventana.
 - **Rediseño de Vista Dividida (Split View)**:
   - Eliminados los títulos "Panel Izquierdo" y "Panel Derecho" de la cabecera de los paneles.
   - Se muestra únicamente la ruta actual formateada como breadcrumbs de forma compacta.
