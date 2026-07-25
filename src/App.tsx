@@ -9,6 +9,7 @@ import { TabBar } from "./components/TabBar";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
 import { FileList } from "./components/FileList";
+import { FileGrid } from "./components/FileGrid";
 import { Footer } from "./components/Footer";
 import { BottomTerminal } from "./components/BottomTerminal";
 import { TabTerminal } from "./components/TabTerminal";
@@ -20,6 +21,24 @@ function App() {
 
   const [isBottomTerminalOpen, setIsBottomTerminalOpen] = useState(false);
   const [bottomSessionId] = useState(() => `session-bottom-${Date.now()}`);
+
+  const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
+    try {
+      const saved = localStorage.getItem("sack-view-mode");
+      return saved === "grid" ? "grid" : "table";
+    } catch {
+      return "table";
+    }
+  });
+
+  const handleViewModeChange = (mode: "table" | "grid") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("sack-view-mode", mode);
+    } catch (err) {
+      console.error("Failed to save view mode:", err);
+    }
+  };
 
   const leftNav = useNavigation("left");
   const rightNav = useNavigation("right");
@@ -218,6 +237,8 @@ function App() {
           searchInputRef={activeSearch.inputRef}
           isSplitViewOpen={isSplitViewOpen}
           onToggleSplitView={toggleSplitView}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
         />
       </div>
 
@@ -256,88 +277,169 @@ function App() {
             {activeTab.type !== "terminal" && (
               !isSplitViewOpen ? (
                 // Single Panel View
-                <FileList
-                  files={activeFiles}
-                  isScanning={activeScanning}
-                  errorMsg={activeSearch.isSearchActive ? activeSearch.searchError : activeNav.errorMsg}
-                  selectedItem={activeNav.selectedItem}
-                  selectedItems={activeNav.selectedItems}
-                  onSelectItem={activeNav.selectSingle}
-                  onSelectSingle={activeNav.selectSingle}
-                  onToggleSelect={activeNav.toggleSelect}
-                  onRangeSelect={activeNav.rangeSelect}
-                  onClearSelection={activeNav.clearSelection}
-                  onNavigate={(path) => {
-                    activeSearch.clearSearch();
-                    activeNav.scanPath(path);
-                  }}
-                  onRefresh={activeNav.refresh}
-                  currentPath={activeNav.currentPath}
-                  isSearchMode={activeSearch.isSearchActive}
-                  searchQuery={activeSearch.searchQuery}
-                  useFuzzy={activeSearch.useFuzzy}
-                  isSplitViewOpen={false}
-                />
+                viewMode === "grid" ? (
+                  <FileGrid
+                    files={activeFiles}
+                    isScanning={activeScanning}
+                    errorMsg={activeSearch.isSearchActive ? activeSearch.searchError : activeNav.errorMsg}
+                    selectedItem={activeNav.selectedItem}
+                    selectedItems={activeNav.selectedItems}
+                    onSelectItem={activeNav.selectSingle}
+                    onSelectSingle={activeNav.selectSingle}
+                    onToggleSelect={activeNav.toggleSelect}
+                    onRangeSelect={activeNav.rangeSelect}
+                    onClearSelection={activeNav.clearSelection}
+                    onNavigate={(path) => {
+                      activeSearch.clearSearch();
+                      activeNav.scanPath(path);
+                    }}
+                    onRefresh={activeNav.refresh}
+                    currentPath={activeNav.currentPath}
+                    isSearchMode={activeSearch.isSearchActive}
+                    searchQuery={activeSearch.searchQuery}
+                    useFuzzy={activeSearch.useFuzzy}
+                    isSplitViewOpen={false}
+                  />
+                ) : (
+                  <FileList
+                    files={activeFiles}
+                    isScanning={activeScanning}
+                    errorMsg={activeSearch.isSearchActive ? activeSearch.searchError : activeNav.errorMsg}
+                    selectedItem={activeNav.selectedItem}
+                    selectedItems={activeNav.selectedItems}
+                    onSelectItem={activeNav.selectSingle}
+                    onSelectSingle={activeNav.selectSingle}
+                    onToggleSelect={activeNav.toggleSelect}
+                    onRangeSelect={activeNav.rangeSelect}
+                    onClearSelection={activeNav.clearSelection}
+                    onNavigate={(path) => {
+                      activeSearch.clearSearch();
+                      activeNav.scanPath(path);
+                    }}
+                    onRefresh={activeNav.refresh}
+                    currentPath={activeNav.currentPath}
+                    isSearchMode={activeSearch.isSearchActive}
+                    searchQuery={activeSearch.searchQuery}
+                    useFuzzy={activeSearch.useFuzzy}
+                    isSplitViewOpen={false}
+                  />
+                )
               ) : (
                 // Dual Panel Split View
                 <div className="grid grid-cols-2 gap-3 p-3 h-full overflow-y-auto">
                   {/* Left Panel */}
-                  <FileList
-                    files={leftSearch.isSearchActive ? leftSearch.searchResults : leftNav.files}
-                    isScanning={leftSearch.isSearchActive ? leftSearch.isSearching : leftNav.isScanning}
-                    errorMsg={leftSearch.isSearchActive ? leftSearch.searchError : leftNav.errorMsg}
-                    selectedItem={leftNav.selectedItem}
-                    selectedItems={leftNav.selectedItems}
-                    onSelectItem={leftNav.selectSingle}
-                    onSelectSingle={leftNav.selectSingle}
-                    onToggleSelect={leftNav.toggleSelect}
-                    onRangeSelect={leftNav.rangeSelect}
-                    onClearSelection={leftNav.clearSelection}
-                    onNavigate={(path) => {
-                      leftSearch.clearSearch();
-                      leftNav.scanPath(path);
-                    }}
-                    onRefresh={leftNav.refresh}
-                    currentPath={leftNav.currentPath}
-                    isSearchMode={leftSearch.isSearchActive}
-                    searchQuery={leftSearch.searchQuery}
-                    useFuzzy={leftSearch.useFuzzy}
-                    isSplitViewOpen={true}
-                    targetPanelPath={rightNav.currentPath}
-                    onOtherPanelRefresh={rightNav.refresh}
-                    panelSide="left"
-                    isActivePanel={activeSide === "left"}
-                    onPanelFocus={() => setActivePanel("left")}
-                  />
+                  {viewMode === "grid" ? (
+                    <FileGrid
+                      files={leftSearch.isSearchActive ? leftSearch.searchResults : leftNav.files}
+                      isScanning={leftSearch.isSearchActive ? leftSearch.isSearching : leftNav.isScanning}
+                      errorMsg={leftSearch.isSearchActive ? leftSearch.searchError : leftNav.errorMsg}
+                      selectedItem={leftNav.selectedItem}
+                      selectedItems={leftNav.selectedItems}
+                      onSelectItem={leftNav.selectSingle}
+                      onSelectSingle={leftNav.selectSingle}
+                      onToggleSelect={leftNav.toggleSelect}
+                      onRangeSelect={leftNav.rangeSelect}
+                      onClearSelection={leftNav.clearSelection}
+                      onNavigate={(path) => {
+                        leftSearch.clearSearch();
+                        leftNav.scanPath(path);
+                      }}
+                      onRefresh={leftNav.refresh}
+                      currentPath={leftNav.currentPath}
+                      isSearchMode={leftSearch.isSearchActive}
+                      searchQuery={leftSearch.searchQuery}
+                      useFuzzy={leftSearch.useFuzzy}
+                      isSplitViewOpen={true}
+                      targetPanelPath={rightNav.currentPath}
+                      onOtherPanelRefresh={rightNav.refresh}
+                      isActivePanel={activeSide === "left"}
+                      onPanelFocus={() => setActivePanel("left")}
+                    />
+                  ) : (
+                    <FileList
+                      files={leftSearch.isSearchActive ? leftSearch.searchResults : leftNav.files}
+                      isScanning={leftSearch.isSearchActive ? leftSearch.isSearching : leftNav.isScanning}
+                      errorMsg={leftSearch.isSearchActive ? leftSearch.searchError : leftNav.errorMsg}
+                      selectedItem={leftNav.selectedItem}
+                      selectedItems={leftNav.selectedItems}
+                      onSelectItem={leftNav.selectSingle}
+                      onSelectSingle={leftNav.selectSingle}
+                      onToggleSelect={leftNav.toggleSelect}
+                      onRangeSelect={leftNav.rangeSelect}
+                      onClearSelection={leftNav.clearSelection}
+                      onNavigate={(path) => {
+                        leftSearch.clearSearch();
+                        leftNav.scanPath(path);
+                      }}
+                      onRefresh={leftNav.refresh}
+                      currentPath={leftNav.currentPath}
+                      isSearchMode={leftSearch.isSearchActive}
+                      searchQuery={leftSearch.searchQuery}
+                      useFuzzy={leftSearch.useFuzzy}
+                      isSplitViewOpen={true}
+                      targetPanelPath={rightNav.currentPath}
+                      onOtherPanelRefresh={rightNav.refresh}
+                      isActivePanel={activeSide === "left"}
+                      onPanelFocus={() => setActivePanel("left")}
+                    />
+                  )}
 
                   {/* Right Panel */}
-                  <FileList
-                    files={rightSearch.isSearchActive ? rightSearch.searchResults : rightNav.files}
-                    isScanning={rightSearch.isSearchActive ? rightSearch.isSearching : rightNav.isScanning}
-                    errorMsg={rightSearch.isSearchActive ? rightSearch.searchError : rightNav.errorMsg}
-                    selectedItem={rightNav.selectedItem}
-                    selectedItems={rightNav.selectedItems}
-                    onSelectItem={rightNav.selectSingle}
-                    onSelectSingle={rightNav.selectSingle}
-                    onToggleSelect={rightNav.toggleSelect}
-                    onRangeSelect={rightNav.rangeSelect}
-                    onClearSelection={rightNav.clearSelection}
-                    onNavigate={(path) => {
-                      rightSearch.clearSearch();
-                      rightNav.scanPath(path);
-                    }}
-                    onRefresh={rightNav.refresh}
-                    currentPath={rightNav.currentPath}
-                    isSearchMode={rightSearch.isSearchActive}
-                    searchQuery={rightSearch.searchQuery}
-                    useFuzzy={rightSearch.useFuzzy}
-                    isSplitViewOpen={true}
-                    targetPanelPath={leftNav.currentPath}
-                    onOtherPanelRefresh={leftNav.refresh}
-                    panelSide="right"
-                    isActivePanel={activeSide === "right"}
-                    onPanelFocus={() => setActivePanel("right")}
-                  />
+                  {viewMode === "grid" ? (
+                    <FileGrid
+                      files={rightSearch.isSearchActive ? rightSearch.searchResults : rightNav.files}
+                      isScanning={rightSearch.isSearchActive ? rightSearch.isSearching : rightNav.isScanning}
+                      errorMsg={rightSearch.isSearchActive ? rightSearch.searchError : rightNav.errorMsg}
+                      selectedItem={rightNav.selectedItem}
+                      selectedItems={rightNav.selectedItems}
+                      onSelectItem={rightNav.selectSingle}
+                      onSelectSingle={rightNav.selectSingle}
+                      onToggleSelect={rightNav.toggleSelect}
+                      onRangeSelect={rightNav.rangeSelect}
+                      onClearSelection={rightNav.clearSelection}
+                      onNavigate={(path) => {
+                        rightSearch.clearSearch();
+                        rightNav.scanPath(path);
+                      }}
+                      onRefresh={rightNav.refresh}
+                      currentPath={rightNav.currentPath}
+                      isSearchMode={rightSearch.isSearchActive}
+                      searchQuery={rightSearch.searchQuery}
+                      useFuzzy={rightSearch.useFuzzy}
+                      isSplitViewOpen={true}
+                      targetPanelPath={leftNav.currentPath}
+                      onOtherPanelRefresh={leftNav.refresh}
+                      isActivePanel={activeSide === "right"}
+                      onPanelFocus={() => setActivePanel("right")}
+                    />
+                  ) : (
+                    <FileList
+                      files={rightSearch.isSearchActive ? rightSearch.searchResults : rightNav.files}
+                      isScanning={rightSearch.isSearchActive ? rightSearch.isSearching : rightNav.isScanning}
+                      errorMsg={rightSearch.isSearchActive ? rightSearch.searchError : rightNav.errorMsg}
+                      selectedItem={rightNav.selectedItem}
+                      selectedItems={rightNav.selectedItems}
+                      onSelectItem={rightNav.selectSingle}
+                      onSelectSingle={rightNav.selectSingle}
+                      onToggleSelect={rightNav.toggleSelect}
+                      onRangeSelect={rightNav.rangeSelect}
+                      onClearSelection={rightNav.clearSelection}
+                      onNavigate={(path) => {
+                        rightSearch.clearSearch();
+                        rightNav.scanPath(path);
+                      }}
+                      onRefresh={rightNav.refresh}
+                      currentPath={rightNav.currentPath}
+                      isSearchMode={rightSearch.isSearchActive}
+                      searchQuery={rightSearch.searchQuery}
+                      useFuzzy={rightSearch.useFuzzy}
+                      isSplitViewOpen={true}
+                      targetPanelPath={leftNav.currentPath}
+                      onOtherPanelRefresh={leftNav.refresh}
+                      isActivePanel={activeSide === "right"}
+                      onPanelFocus={() => setActivePanel("right")}
+                    />
+                  )}
                 </div>
               )
             )}

@@ -13,6 +13,8 @@ import {
   Folder,
   MoreHorizontal,
   ChevronDown,
+  LayoutList,
+  LayoutGrid,
 } from "lucide-react";
 
 export interface BreadcrumbSegment {
@@ -97,6 +99,9 @@ interface NavbarProps {
   // Split View Props
   isSplitViewOpen: boolean;
   onToggleSplitView: () => void;
+  // View Switcher Props
+  viewMode: "table" | "grid";
+  onViewModeChange: (mode: "table" | "grid") => void;
 }
 
 export function Navbar({
@@ -118,6 +123,8 @@ export function Navbar({
   searchInputRef,
   isSplitViewOpen,
   onToggleSplitView,
+  viewMode,
+  onViewModeChange,
 }: NavbarProps) {
   const [inputValue, setInputValue] = useState(currentPath);
   const [isEditingPath, setIsEditingPath] = useState(false);
@@ -353,10 +360,10 @@ export function Navbar({
         </div>
       )}
 
-      {/* 3. Search Input, Fuzzy Connector, & Split View Button */}
+      {/* 3. Search Input, Fuzzy Connector, Split View Button, & View Switcher */}
       <div className="flex items-center gap-1.5 shrink-0">
         {/* Search Input */}
-        <div className="relative flex items-center min-w-[180px] max-w-[240px]">
+        <div className="relative flex items-center min-w-[170px] max-w-[220px]">
           <div className="absolute left-2.5 text-gray-400 pointer-events-none flex items-center">
             {isSearching ? (
               <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />
@@ -434,6 +441,34 @@ export function Navbar({
           <Columns2 className="w-3.5 h-3.5 text-blue-400" />
           <span className="hidden lg:inline">Split View</span>
         </button>
+
+        {/* View Switcher Segmented Control (Table vs Grid) */}
+        <div className="flex items-center bg-gray-800 border border-gray-700/80 rounded-lg p-0.5 gap-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => onViewModeChange("table")}
+            title="Vista de Tabla / Detalles (☰)"
+            className={`p-1 rounded transition-all ${
+              viewMode === "table"
+                ? "bg-zinc-700 text-zinc-100 shadow-sm"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+            }`}
+          >
+            <LayoutList className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewModeChange("grid")}
+            title="Vista de Cuadrícula / Grid (⠿)"
+            className={`p-1 rounded transition-all ${
+              viewMode === "grid"
+                ? "bg-zinc-700 text-zinc-100 shadow-sm"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </header>
   );

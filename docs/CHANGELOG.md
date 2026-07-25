@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Conmutador de Vistas y Grid View ([FileGrid.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/FileGrid.tsx) & [Navbar.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/Navbar.tsx))**:
+  - Implementación del modo de visualización en Cuadrícula / Grid (`grid`) alternativo a la vista tradicional de Tabla (`table`).
+  - Creación del componente `FileGrid.tsx` con disposición de tarjetas auto-adaptables (`grid-cols-auto-fill`), íconos visuales de gran tamaño por tipo de archivo, y nombres truncados.
+  - Soporte completo en `FileGrid.tsx` para todas las interacciones nativas: doble clic para abrir, menú contextual (clic derecho), selección simple y múltiple (`Ctrl/Shift+Clic`), atenación visual de elementos cortados (`opacity-50`) y renombrado inline (`F2`).
+  - Agregado el control segmentado de botones en la barra superior (`Navbar.tsx`) con íconos `LayoutList` (☰) y `LayoutGrid` (⠿) para alternar vistas al instante, persistiendo la preferencia en `localStorage`.
 - **Consolidación de Barra de Herramientas Compacta ([Navbar.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/Navbar.tsx))**:
   - Eliminación completa del bloque redundantemente titulado "File Explorer" y su ícono de lupa.
   - Consolidación de todos los elementos de control en un único contenedor horizontal flex de ~36px a 40px de altura:
