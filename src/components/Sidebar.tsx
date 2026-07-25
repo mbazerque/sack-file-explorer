@@ -5,20 +5,33 @@ import {
   Download,
   HardDrive,
   Folder,
+  FolderOpen,
   Monitor,
   RotateCw,
-  Plus,
   Trash2,
   ExternalLink,
+  ChevronRight,
+  ChevronDown,
+  Loader2,
+  FolderPlus,
+  Edit2,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTabContext } from "../context/TabContext";
+import { FileItem } from "../types/file";
 
 export interface FavoriteItem {
   id: string;
   name: string;
   path: string;
   iconType?: "home" | "documents" | "downloads" | "desktop" | "folder";
+}
+
+export interface SidebarGroup {
+  id: string;
+  name: string;
+  isCustom?: boolean;
+  items: FavoriteItem[];
 }
 
 export interface DriveItem {
@@ -33,14 +46,26 @@ interface SidebarProps {
   currentPath: string;
 }
 
-const STORAGE_KEY = "sack_quick_access_favorites";
+const GROUPS_STORAGE_KEY = "sack_sidebar_groups";
+const COLLAPSED_STORAGE_KEY = "sack_sidebar_collapsed_sections";
 
-const DEFAULT_FAVORITES: FavoriteItem[] = [
-  { id: "fav-home", name: "Inicio", path: "C:/Users", iconType: "home" },
-  { id: "fav-docs", name: "Documentos", path: "C:/Users/Public/Documents", iconType: "documents" },
-  { id: "fav-downloads", name: "Descargas", path: "C:/Users/Public/Downloads", iconType: "downloads" },
-  { id: "fav-desktop", name: "Escritorio", path: "C:/Users/Public/Desktop", iconType: "desktop" },
+const DEFAULT_GROUPS: SidebarGroup[] = [
+  {
+    id: "group-quick-access",
+    name: "Acceso Rápido",
+    isCustom: false,
+    items: [
+      { id: "fav-home", name: "Inicio", path: "C:/Users", iconType: "home" },
+      { id: "fav-docs", name: "Documentos", path: "C:/Users/Public/Documents", iconType: "documents" },
+      { id: "fav-downloads", name: "Descargas", path: "C:/Users/Public/Downloads", iconType: "downloads" },
+      { id: "fav-desktop", name: "Escritorio", path: "C:/Users/Public/Desktop", iconType: "desktop" },
+    ],
+  },
 ];
+
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes === 0) return "0 B";
@@ -50,48 +75,206 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+function getFavoriteIcon(iconType?: string, isExpanded?: boolean) {
+  switch (iconType) {
+    case "home":
+      return Home;
+    case "documents":
+      return FileText;
+    case "downloads":
+      return Download;
+    case "desktop":
+      return Monitor;
+    default:
+      return isExpanded ? FolderOpen : Folder;
+  }
 }
 
+/* ─────────────────────────────────────────────────────────────
+ * Tree Node Component for Nested Subfolder Cascade (VS Code style)
+ * ──────────────────────────────────────────────────────────── */
+interface SidebarTreeNodeProps {
+  name: string;
+  path: string;
+  iconType?: string;
+  depth: number;
+  currentPath: string;
+  onNavigate: (path: string) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  expandedFolders: Record<string, boolean>;
+  subfoldersMap: Record<string, FileItem[]>;
+  loadingFolders: Record<string, boolean>;
+  onToggleExpand: (path: string) => void;
+}
+
+function SidebarTreeNode({
+  name,
+  path,
+  iconType,
+  depth,
+  currentPath,
+  onNavigate,
+  onContextMenu,
+  expandedFolders,
+  subfoldersMap,
+  loadingFolders,
+  onToggleExpand,
+}: SidebarTreeNodeProps) {
+  const normPath = normalizePath(path);
+  const normCurrent = normalizePath(currentPath);
+
+  const isExpanded = !!expandedFolders[normPath];
+  const isLoading = !!loadingFolders[normPath];
+  const subfolders = subfoldersMap[normPath] || [];
+  const isActive = normCurrent === normPath;
+
+  const Icon = getFavoriteIcon(iconType, isExpanded);
+
+  return (
+    <div className="flex flex-col select-none">
+      <div
+        className={`group flex items-center gap-1.5 py-1 px-1.5 rounded-lg transition-all text-xs border ${
+          isActive
+            ? "bg-blue-600/20 text-blue-300 font-semibold border-blue-500/30 ring-1 ring-blue-500/20"
+            : "text-gray-300 hover:bg-gray-800 hover:text-white border-transparent"
+        }`}
+        style={{ paddingLeft: `${depth * 12 + 6}px` }}
+      >
+        {/* Chevron Expand Toggle */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExpand(path);
+          }}
+          title={isExpanded ? "Colapsar subcarpetas" : "Expandir subcarpetas"}
+          className="p-0.5 text-gray-400 hover:text-white rounded hover:bg-gray-700/60 shrink-0 transition-colors"
+        >
+          {isLoading ? (
+            <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
+          ) : isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+          )}
+        </button>
+
+        {/* Location Icon & Name */}
+        <button
+          type="button"
+          onClick={() => onNavigate(path)}
+          onContextMenu={onContextMenu}
+          title={path}
+          className="flex-1 flex items-center gap-2 min-w-0 text-left"
+        >
+          <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-400" : isExpanded ? "text-amber-300" : "text-amber-400"}`} />
+          <span className="truncate flex-1">{name}</span>
+        </button>
+      </div>
+
+      {/* Nested Subfolders Tree */}
+      {isExpanded && subfolders.length > 0 && (
+        <div className="flex flex-col border-l border-gray-800/80 ml-3.5 my-0.5">
+          {subfolders.map((sub) => {
+            const subPath = `${path.endsWith("/") ? path : path + "/"}${sub.name}`;
+            return (
+              <SidebarTreeNode
+                key={subPath}
+                name={sub.name}
+                path={subPath}
+                depth={depth + 1}
+                currentPath={currentPath}
+                onNavigate={onNavigate}
+                expandedFolders={expandedFolders}
+                subfoldersMap={subfoldersMap}
+                loadingFolders={loadingFolders}
+                onToggleExpand={onToggleExpand}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty State when expanded with no subfolders */}
+      {isExpanded && !isLoading && subfolders.length === 0 && (
+        <div
+          className="text-[11px] text-gray-500 italic py-1 border-l border-gray-800/60 ml-3.5"
+          style={{ paddingLeft: `${(depth + 1) * 12 + 6}px` }}
+        >
+          Sin subcarpetas
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Main Sidebar Component
+ * ──────────────────────────────────────────────────────────── */
 export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
   const { createTab } = useTabContext();
 
-  const [favorites, setFavorites] = useState<FavoriteItem[]>(() => {
+  // 1. Sidebar Groups State
+  const [groups, setGroups] = useState<SidebarGroup[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(GROUPS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return DEFAULT_FAVORITES;
+    return DEFAULT_GROUPS;
   });
 
+  // 2. Section Collapse States
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // 3. System Drives State
   const [drives, setDrives] = useState<DriveItem[]>([]);
   const [isLoadingDrives, setIsLoadingDrives] = useState(false);
 
-  const [isDragOver, setIsDragOver] = useState(false);
+  // 4. Lazy-loaded subfolder map & expand state
+  const [subfoldersMap, setSubfoldersMap] = useState<Record<string, FileItem[]>>({});
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [loadingFolders, setLoadingFolders] = useState<Record<string, boolean>>({});
 
+  // 5. Drag Over Group ID state
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+
+  // 6. Custom Group Creation State
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+
+  // 7. Rename Group State
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+
+  // 8. Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    item: FavoriteItem;
+    type: "item" | "group";
+    item?: FavoriteItem;
+    groupId?: string;
   } | null>(null);
 
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // Fetch system drives via Tauri IPC
+  // Fetch drives on mount
   const fetchDrives = async () => {
     setIsLoadingDrives(true);
     try {
       const result = await invoke<DriveItem[]>("get_system_drives");
       setDrives(result);
     } catch (err) {
-      console.error("Failed to fetch system drives:", err);
-      // Fallback drive
+      console.error("Failed to fetch drives:", err);
       setDrives([{ name: "Disco Local (C:)", path: "C:/", total_bytes: 0, available_bytes: 0 }]);
     } finally {
       setIsLoadingDrives(false);
@@ -102,15 +285,26 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
     fetchDrives();
   }, []);
 
-  // Save favorites to localStorage
-  const saveFavorites = (newFavs: FavoriteItem[]) => {
-    setFavorites(newFavs);
+  // Save groups to localStorage
+  const saveGroups = (updated: SidebarGroup[]) => {
+    setGroups(updated);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newFavs));
+      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updated));
     } catch {}
   };
 
-  // Close context menu on outside click
+  // Save collapsed states
+  const toggleSectionCollapse = (sectionId: string) => {
+    setCollapsedSections((prev) => {
+      const updated = { ...prev, [sectionId]: !prev[sectionId] };
+      try {
+        localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // Close context menu on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
@@ -123,21 +317,48 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [contextMenu]);
 
-  // Drag and Drop handlers for Quick Access section
-  const handleDragOver = (e: React.DragEvent) => {
+  // Lazy load subfolders for tree expansion
+  const toggleExpandFolder = async (folderPath: string) => {
+    const normPath = normalizePath(folderPath);
+    const isCurrentlyExpanded = !!expandedFolders[normPath];
+
+    if (isCurrentlyExpanded) {
+      setExpandedFolders((prev) => ({ ...prev, [normPath]: false }));
+      return;
+    }
+
+    setExpandedFolders((prev) => ({ ...prev, [normPath]: true }));
+
+    if (!subfoldersMap[normPath]) {
+      setLoadingFolders((prev) => ({ ...prev, [normPath]: true }));
+      try {
+        const items = await invoke<FileItem[]>("scan_directory", { path: folderPath });
+        const dirsOnly = items.filter((it) => it.is_dir);
+        setSubfoldersMap((prev) => ({ ...prev, [normPath]: dirsOnly }));
+      } catch (err) {
+        console.error("Failed to fetch subfolders:", err);
+        setSubfoldersMap((prev) => ({ ...prev, [normPath]: [] }));
+      } finally {
+        setLoadingFolders((prev) => ({ ...prev, [normPath]: false }));
+      }
+    }
+  };
+
+  // Drag & drop folder to group
+  const handleDragOver = (e: React.DragEvent, groupId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
-    if (!isDragOver) setIsDragOver(true);
+    if (dragOverGroupId !== groupId) setDragOverGroupId(groupId);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(false);
+    setDragOverGroupId(null);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDropToGroup = (e: React.DragEvent, groupId: string) => {
     e.preventDefault();
-    setIsDragOver(false);
+    setDragOverGroupId(null);
 
     try {
       const jsonStr = e.dataTransfer.getData("application/json");
@@ -160,120 +381,239 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
 
       if (droppedPath) {
         const normDropped = normalizePath(droppedPath);
-        if (!favorites.some((f) => normalizePath(f.path) === normDropped)) {
+        const updatedGroups = groups.map((g) => {
+          if (g.id !== groupId) return g;
+          if (g.items.some((it) => normalizePath(it.path) === normDropped)) return g;
+
           const newFav: FavoriteItem = {
             id: `fav-${Date.now()}`,
             name: droppedName || "Carpeta",
             path: droppedPath,
             iconType: "folder",
           };
-          saveFavorites([...favorites, newFav]);
-        }
+          return { ...g, items: [...g.items, newFav] };
+        });
+        saveGroups(updatedGroups);
       }
     } catch (err) {
-      console.error("Error dropping folder to favorites:", err);
+      console.error("Error dropping folder to sidebar group:", err);
     }
   };
 
-  const handleRemoveFavorite = (id: string) => {
-    const updated = favorites.filter((f) => f.id !== id);
-    saveFavorites(updated);
+  // Group creation
+  const handleCreateGroup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGroupName.trim()) return;
+
+    const newGroup: SidebarGroup = {
+      id: `group-${Date.now()}`,
+      name: newGroupName.trim(),
+      isCustom: true,
+      items: [],
+    };
+
+    saveGroups([...groups, newGroup]);
+    setNewGroupName("");
+    setIsCreatingGroup(false);
+  };
+
+  // Group renaming
+  const handleRenameGroup = (groupId: string, newName: string) => {
+    if (!newName.trim()) return;
+    const updated = groups.map((g) => (g.id === groupId ? { ...g, name: newName.trim() } : g));
+    saveGroups(updated);
+    setEditingGroupId(null);
     setContextMenu(null);
   };
 
-  const handleOpenInNewTab = (path: string) => {
-    createTab(path);
+  // Group removal
+  const handleDeleteGroup = (groupId: string) => {
+    const updated = groups.filter((g) => g.id !== groupId);
+    saveGroups(updated);
     setContextMenu(null);
   };
 
-  const handleContextMenu = (item: FavoriteItem, e: React.MouseEvent) => {
+  // Remove item from group
+  const handleRemoveItem = (groupId: string, itemId: string) => {
+    const updated = groups.map((g) => {
+      if (g.id !== groupId) return g;
+      return { ...g, items: g.items.filter((it) => it.id !== itemId) };
+    });
+    saveGroups(updated);
+    setContextMenu(null);
+  };
+
+  // Context menu handlers
+  const handleItemContextMenu = (item: FavoriteItem, groupId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
+      type: "item",
       item,
+      groupId,
     });
   };
 
-  const getFavoriteIcon = (iconType?: string) => {
-    switch (iconType) {
-      case "home":
-        return Home;
-      case "documents":
-        return FileText;
-      case "downloads":
-        return Download;
-      case "desktop":
-        return Monitor;
-      default:
-        return Folder;
-    }
+  const handleGroupContextMenu = (groupId: string, e: React.MouseEvent) => {
+    const g = groups.find((gr) => gr.id === groupId);
+    if (!g || !g.isCustom) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type: "group",
+      groupId,
+    });
   };
 
   const normCurrent = normalizePath(currentPath);
 
   return (
     <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col p-3 overflow-y-auto shrink-0 select-none font-sans text-xs">
-      {/* 1. ACCESO RÁPIDO (Quick Access Favorites) */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`rounded-xl p-2 transition-all border ${
-          isDragOver
-            ? "bg-blue-500/10 border-dashed border-2 border-blue-500/50 shadow-inner"
-            : "border-transparent"
-        }`}
-      >
-        <div className="flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
-          <span>Acceso Rápido</span>
-          <span className="text-[10px] text-gray-400 font-normal lowercase hidden group-hover:inline">
-            arrastrá carpetas
-          </span>
-        </div>
+      {/* ── 1. CUSTOM & DEFAULT SIDEBAR GROUPS ── */}
+      <div className="space-y-3">
+        {groups.map((group) => {
+          const isCollapsed = !!collapsedSections[group.id];
+          const isDragOver = dragOverGroupId === group.id;
 
-        <ul className="space-y-0.5">
-          {favorites.map((fav) => {
-            const Icon = getFavoriteIcon(fav.iconType);
-            const normFav = normalizePath(fav.path);
-            const isActive = normCurrent === normFav;
+          return (
+            <div
+              key={group.id}
+              onDragOver={(e) => handleDragOver(e, group.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDropToGroup(e, group.id)}
+              className={`rounded-xl p-1.5 transition-all border ${
+                isDragOver
+                  ? "bg-blue-500/10 border-dashed border-2 border-blue-500/50 shadow-inner"
+                  : "border-transparent"
+              }`}
+            >
+              {/* Group Collapsible Header */}
+              <div
+                onContextMenu={(e) => handleGroupContextMenu(group.id, e)}
+                className="flex items-center justify-between py-1 px-1 text-xs font-semibold text-gray-400 uppercase tracking-wider group/hdr hover:text-gray-200 transition-colors"
+              >
+                {editingGroupId === group.id ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={editingGroupName}
+                    onChange={(e) => setEditingGroupName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRenameGroup(group.id, editingGroupName);
+                      if (e.key === "Escape") setEditingGroupId(null);
+                    }}
+                    onBlur={() => handleRenameGroup(group.id, editingGroupName)}
+                    className="bg-gray-800 text-gray-100 border border-blue-500 rounded px-1.5 py-0.5 text-xs focus:outline-none w-full"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionCollapse(group.id)}
+                    className="flex items-center gap-1.5 flex-1 text-left min-w-0"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                    )}
+                    <span className="truncate">{group.name}</span>
+                  </button>
+                )}
+              </div>
 
-            return (
-              <li key={fav.id}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate(fav.path)}
-                  onContextMenu={(e) => handleContextMenu(fav, e)}
-                  title={fav.path}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-2.5 text-xs ${
-                    isActive
-                      ? "bg-blue-600/20 text-blue-300 font-semibold border border-blue-500/30 ring-1 ring-blue-500/20"
-                      : "text-gray-300 hover:bg-gray-800 hover:text-white border border-transparent"
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-400" : "text-amber-400"}`} />
-                  <span className="truncate flex-1">{fav.name}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+              {/* Group Items (Tree View) */}
+              {!isCollapsed && (
+                <div className="mt-1 space-y-0.5">
+                  {group.items.map((item) => (
+                    <SidebarTreeNode
+                      key={item.id}
+                      name={item.name}
+                      path={item.path}
+                      iconType={item.iconType}
+                      depth={0}
+                      currentPath={currentPath}
+                      onNavigate={onNavigate}
+                      onContextMenu={(e) => handleItemContextMenu(item, group.id, e)}
+                      expandedFolders={expandedFolders}
+                      subfoldersMap={subfoldersMap}
+                      loadingFolders={loadingFolders}
+                      onToggleExpand={toggleExpandFolder}
+                    />
+                  ))}
 
-        {isDragOver && (
-          <div className="mt-2 p-2 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 text-center text-[11px] font-medium flex items-center justify-center gap-1">
-            <Plus className="w-3.5 h-3.5" />
-            <span>Soltar carpeta para agregar</span>
-          </div>
-        )}
+                  {group.items.length === 0 && (
+                    <div className="px-2 py-1.5 text-[11px] text-gray-500 italic">
+                      Arrastrá carpetas aquí
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {/* Button to Create New Custom Group */}
+      {isCreatingGroup ? (
+        <form onSubmit={handleCreateGroup} className="mt-3 p-2 bg-gray-800/80 border border-gray-700 rounded-xl space-y-2">
+          <input
+            type="text"
+            autoFocus
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            placeholder="Nombre del grupo..."
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <div className="flex items-center justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsCreatingGroup(false)}
+              className="px-2 py-0.5 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors text-[11px]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-2.5 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors text-[11px]"
+            >
+              Agregar
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsCreatingGroup(true)}
+          className="mt-3 w-full py-1.5 px-2.5 rounded-xl border border-dashed border-gray-800 hover:border-gray-700 text-gray-400 hover:text-gray-200 transition-colors flex items-center justify-center gap-1.5 text-xs group"
+        >
+          <FolderPlus className="w-3.5 h-3.5 text-gray-500 group-hover:text-blue-400" />
+          <span>Nuevo Grupo</span>
+        </button>
+      )}
 
       <div className="my-3 border-t border-gray-800/80" />
 
-      {/* 2. DISPOSITIVOS Y UNIDADES (System Drives) */}
+      {/* ── 2. DISPOSITIVOS Y UNIDADES (System Drives with Tree View) ── */}
       <div className="px-1">
-        <div className="flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-          <span>Dispositivos y Unidades</span>
+        {/* Drives Header */}
+        <div className="flex items-center justify-between py-1 px-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <button
+            type="button"
+            onClick={() => toggleSectionCollapse("section-drives")}
+            className="flex items-center gap-1.5 flex-1 text-left"
+          >
+            {collapsedSections["section-drives"] ? (
+              <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+            )}
+            <span>Dispositivos y Unidades</span>
+          </button>
+
           <button
             type="button"
             onClick={fetchDrives}
@@ -285,85 +625,181 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
           </button>
         </div>
 
-        <ul className="space-y-1.5">
-          {drives.map((drive) => {
-            const normDrive = normalizePath(drive.path);
-            const isActive = normCurrent === normDrive || normCurrent.startsWith(normDrive + "/");
+        {/* Drives List */}
+        {!collapsedSections["section-drives"] && (
+          <ul className="mt-1 space-y-1">
+            {drives.map((drive) => {
+              const normDrive = normalizePath(drive.path);
+              const isActive = normCurrent === normDrive || normCurrent.startsWith(normDrive + "/");
+              const isExpanded = !!expandedFolders[normDrive];
+              const isLoading = !!loadingFolders[normDrive];
+              const subfolders = subfoldersMap[normDrive] || [];
 
-            const hasSize = drive.total_bytes > 0;
-            const usedBytes = drive.total_bytes - drive.available_bytes;
-            const percentage = hasSize ? Math.min(100, Math.round((usedBytes / drive.total_bytes) * 100)) : 0;
+              const hasSize = drive.total_bytes > 0;
+              const usedBytes = drive.total_bytes - drive.available_bytes;
+              const percentage = hasSize ? Math.min(100, Math.round((usedBytes / drive.total_bytes) * 100)) : 0;
 
-            return (
-              <li key={drive.path}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate(drive.path)}
-                  title={drive.path}
-                  className={`w-full text-left px-2.5 py-2 rounded-lg transition-all flex flex-col gap-1.5 text-xs ${
-                    isActive
-                      ? "bg-blue-600/20 text-blue-300 font-semibold border border-blue-500/30 ring-1 ring-blue-500/20"
-                      : "text-gray-300 hover:bg-gray-800 hover:text-white border border-transparent"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 w-full">
-                    <HardDrive className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-400" : "text-blue-500"}`} />
-                    <span className="truncate flex-1 font-medium">{drive.name}</span>
+              return (
+                <li key={drive.path} className="flex flex-col">
+                  <div
+                    className={`w-full px-2 py-1.5 rounded-lg transition-all flex flex-col gap-1 text-xs border ${
+                      isActive
+                        ? "bg-blue-600/20 text-blue-300 font-semibold border-blue-500/30 ring-1 ring-blue-500/20"
+                        : "text-gray-300 hover:bg-gray-800 hover:text-white border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 w-full">
+                      {/* Chevron expand button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpandFolder(drive.path);
+                        }}
+                        title={isExpanded ? "Colapsar unidad" : "Expandir unidad"}
+                        className="p-0.5 text-gray-400 hover:text-white rounded hover:bg-gray-700/60 shrink-0 transition-colors"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
+                        ) : isExpanded ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onNavigate(drive.path)}
+                        title={drive.path}
+                        className="flex-1 flex items-center gap-2 text-left min-w-0"
+                      >
+                        <HardDrive className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-400" : "text-blue-500"}`} />
+                        <span className="truncate font-medium flex-1">{drive.name}</span>
+                      </button>
+                    </div>
+
+                    {hasSize && (
+                      <div className="w-full pl-6 pr-1 space-y-0.5">
+                        <div className="flex items-center justify-between text-[10px] text-gray-400">
+                          <span>{formatFileSize(drive.available_bytes)} libres</span>
+                          <span>{percentage}%</span>
+                        </div>
+                        <div className="w-full bg-gray-950 rounded-full h-1.5 overflow-hidden border border-gray-700/50">
+                          <div
+                            className={`h-full transition-all rounded-full ${
+                              percentage > 90
+                                ? "bg-red-500"
+                                : percentage > 75
+                                ? "bg-amber-500"
+                                : "bg-blue-500"
+                            }`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {hasSize && (
-                    <div className="w-full pl-6 pr-1 space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-gray-400">
-                        <span>{formatFileSize(drive.available_bytes)} libres</span>
-                        <span>{percentage}%</span>
-                      </div>
-                      <div className="w-full bg-gray-950 rounded-full h-1.5 overflow-hidden border border-gray-700/50">
-                        <div
-                          className={`h-full transition-all rounded-full ${
-                            percentage > 90
-                              ? "bg-red-500"
-                              : percentage > 75
-                              ? "bg-amber-500"
-                              : "bg-blue-500"
-                          }`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
+                  {/* Drive Subfolders Tree */}
+                  {isExpanded && subfolders.length > 0 && (
+                    <div className="flex flex-col border-l border-gray-800/80 ml-3.5 my-0.5">
+                      {subfolders.map((sub) => {
+                        const subPath = `${drive.path.endsWith("/") ? drive.path : drive.path + "/"}${sub.name}`;
+                        return (
+                          <SidebarTreeNode
+                            key={subPath}
+                            name={sub.name}
+                            path={subPath}
+                            depth={1}
+                            currentPath={currentPath}
+                            onNavigate={onNavigate}
+                            expandedFolders={expandedFolders}
+                            subfoldersMap={subfoldersMap}
+                            loadingFolders={loadingFolders}
+                            onToggleExpand={toggleExpandFolder}
+                          />
+                        );
+                      })}
                     </div>
                   )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+
+                  {isExpanded && !isLoading && subfolders.length === 0 && (
+                    <div className="text-[11px] text-gray-500 italic py-1 border-l border-gray-800/60 ml-5">
+                      Sin subcarpetas
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
-      {/* Floating Context Menu for Favorites */}
+      {/* Floating Context Menu */}
       {contextMenu && (
         <div
           ref={contextMenuRef}
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
           className="fixed z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-xl py-1.5 w-48 text-xs select-none font-sans text-gray-200"
         >
-          <button
-            type="button"
-            onClick={() => handleOpenInNewTab(contextMenu.item.path)}
-            className="w-full px-3 py-1.5 text-left hover:bg-gray-800 hover:text-white flex items-center gap-2 transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
-            <span>Abrir en nueva pestaña</span>
-          </button>
+          {contextMenu.type === "item" && contextMenu.item && contextMenu.groupId && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  createTab(contextMenu.item!.path);
+                  setContextMenu(null);
+                }}
+                className="w-full px-3 py-1.5 text-left hover:bg-gray-800 hover:text-white flex items-center gap-2 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                <span>Abrir en nueva pestaña</span>
+              </button>
 
-          <div className="my-1 border-t border-gray-800" />
+              <div className="my-1 border-t border-gray-800" />
 
-          <button
-            type="button"
-            onClick={() => handleRemoveFavorite(contextMenu.item.id)}
-            className="w-full px-3 py-1.5 text-left hover:bg-red-950/60 hover:text-red-300 text-red-400 flex items-center gap-2 transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Eliminar de Favoritos</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => handleRemoveItem(contextMenu.groupId!, contextMenu.item!.id)}
+                className="w-full px-3 py-1.5 text-left hover:bg-red-950/60 hover:text-red-300 text-red-400 flex items-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Eliminar de Favoritos</span>
+              </button>
+            </>
+          )}
+
+          {contextMenu.type === "group" && contextMenu.groupId && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  const g = groups.find((gr) => gr.id === contextMenu.groupId);
+                  if (g) {
+                    setEditingGroupId(g.id);
+                    setEditingGroupName(g.name);
+                  }
+                  setContextMenu(null);
+                }}
+                className="w-full px-3 py-1.5 text-left hover:bg-gray-800 hover:text-white flex items-center gap-2 transition-colors"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-blue-400" />
+                <span>Renombrar Grupo</span>
+              </button>
+
+              <div className="my-1 border-t border-gray-800" />
+
+              <button
+                type="button"
+                onClick={() => handleDeleteGroup(contextMenu.groupId!)}
+                className="w-full px-3 py-1.5 text-left hover:bg-red-950/60 hover:text-red-300 text-red-400 flex items-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Eliminar Grupo</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </aside>

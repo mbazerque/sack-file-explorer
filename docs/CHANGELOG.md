@@ -18,12 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Alt + Flecha Arriba`: Subir un nivel a la carpeta padre.
   - `Ctrl + R` / `F5`: Recargar / Refrescar el directorio actual.
   - `Ctrl + L`: Activar el modo edición en la barra de dirección.
-- **Barra Lateral Interactiva (`Sidebar.tsx`)**:
-  - Marcadores personalizables (Acceso Rápido / Favoritos) con soporte para arrastrar carpetas (Drag & Drop) desde la vista principal de archivos.
-  - Persistencia automática de la lista de favoritos en `localStorage` entre sesiones.
-  - Menú contextual (clic derecho) en marcadores con opciones "Abrir en nueva pestaña" y "Eliminar de Favoritos".
-  - Nueva sección "DISPOSITIVOS Y UNIDADES" con detección dinámica de discos del sistema vía IPC Rust (`get_system_drives`), barras de porcentaje de uso y espacio disponible.
-  - Resaltado de estado activo (`isActive`) para la ubicación que coincide con la pestaña seleccionada.
+- **Barra Lateral Avanzada (`Sidebar.tsx`)**:
+  - Secciones principales y grupos personalizables colapsables mediante flechas indicadoras (`ChevronRight` / `ChevronDown`) con persistencia del estado `isExpanded` en `localStorage`.
+  - Capacidad para crear nuevos Grupos / Carpetas organizadoras personalizadas (ej. "Proyectos", "Facultad") mediante el botón `+ Nuevo Grupo`, con opciones de renombrado y eliminación por menú contextual.
+  - Árbol de Subcarpetas desplegable (Sidebar Tree View) con carga diferida (lazy loading) mediante el IPC de Rust (`scan_directory`) al expandir cualquier marcador o unidad de disco, estilo VS Code.
+  - Renderizado recursivo indentado en cascada con diferenciación de íconos entre carpetas abiertas (`FolderOpen`) y colapsadas (`Folder`), respetando la navegación al hacer clic en el nombre y la expansión al hacer clic en la flecha.
+  - Soporte completo para Drag & Drop de carpetas desde la tabla principal hacia cualquier sección o grupo organizador de la Sidebar.
 
 ## [v0.4.0] - 2026-07-25 - Terminal & CLI Release
 
