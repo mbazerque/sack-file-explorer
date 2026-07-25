@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Sistema de Terminal Integrada y Promovible (`BottomTerminal` & `TabTerminal`)**:
+  - Implementado panel inferior deslizable de terminal activable con el atajo de teclado `Ctrl + ~` (o `Ctrl + ` `).
+  - Inicialización de la consola del sistema (PowerShell/CMD en Windows) en el directorio activo (`currentPath`).
+  - Header compacto en el panel con indicador de ruta, botón ↗️ "Convertir en Pestaña" y botón ✕ para cerrar el panel.
+  - Soporte para pestañas de tipo `'terminal'` en `TabContext` y `TabBar`, con capacidad de renderizado en panel completo y compatibilidad con Vista Dividida (Split View).
+  - Motor de emulación de consola nativa con `@xterm/xterm` + `@xterm/addon-fit` y streaming IPC bidireccional en Rust.
+
 ## [v0.3.0] - 2026-07-24
 
 ### Changed

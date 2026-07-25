@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Folder, HardDrive, Plus, X } from "lucide-react";
+import { Folder, HardDrive, Plus, X, Terminal as TerminalIcon } from "lucide-react";
 import { useTabContext } from "../context/TabContext";
 import { WindowControls } from "./WindowControls";
 
@@ -92,7 +92,11 @@ export function TabBar() {
                   : "bg-gray-950/60 border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/40"
               }`}
             >
-              {getTabIcon(currentPath)}
+              {tab.type === "terminal" ? (
+                <TerminalIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              ) : (
+                getTabIcon(currentPath)
+              )}
               <span className="truncate flex-1 font-sans pointer-events-none">{tab.title}</span>
 
               {tabs.length > 1 && (

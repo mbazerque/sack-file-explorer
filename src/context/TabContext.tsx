@@ -21,6 +21,7 @@ const defaultPanelState: PanelState = {
 
 const initialTab: Tab = {
   id: "tab-1",
+  type: "folder",
   title: getTabTitle(DEFAULT_INITIAL_PATH),
   isSplitViewOpen: false,
   activePanel: "left",
@@ -35,6 +36,7 @@ interface TabContextType {
   activePanelState: PanelState;
   otherPanelState: PanelState;
   createTab: (initialPath?: string) => void;
+  createTerminalTab: (initialPath?: string) => void;
   closeTab: (id: string) => void;
   selectTab: (id: string) => void;
   toggleSplitView: () => void;
@@ -93,6 +95,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
     };
     const newTab: Tab = {
       id: newId,
+      type: "folder",
       title: getTabTitle(initialPath),
       isSplitViewOpen: false,
       activePanel: "left",
@@ -111,6 +114,36 @@ export function TabProvider({ children }: { children: ReactNode }) {
       setActiveTabIdState(newId);
     }
   }, [isSplitViewOpen, activePanel]);
+
+  const createTerminalTab = useCallback(
+    (initialPath: string = DEFAULT_INITIAL_PATH) => {
+      const newId = `tab-term-${Date.now()}`;
+      const titlePath = getTabTitle(initialPath);
+      const newTab: Tab = {
+        id: newId,
+        type: "terminal",
+        title: `Terminal: ${titlePath}`,
+        terminalId: `session-${newId}`,
+        terminalPath: initialPath,
+        isSplitViewOpen: false,
+        activePanel: "left",
+        leftPanel: { ...defaultPanelState, currentPath: initialPath },
+        rightPanel: { ...defaultPanelState, currentPath: initialPath },
+      };
+
+      setTabs((prev) => [...prev, newTab]);
+      if (isSplitViewOpen) {
+        if (activePanel === "left") {
+          setLeftTabId(newId);
+        } else {
+          setRightTabId(newId);
+        }
+      } else {
+        setActiveTabIdState(newId);
+      }
+    },
+    [isSplitViewOpen, activePanel]
+  );
 
   const closeTab = useCallback(
     (id: string) => {
@@ -181,7 +214,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
           id: newId,
           leftPanel: { ...activeTabObj.leftPanel, history: [...activeTabObj.leftPanel.history] },
           rightPanel: { ...activeTabObj.rightPanel, history: [...activeTabObj.rightPanel.history] },
-          title: `${activeTabObj.title} (Copia)`,
+          title: activeTabObj.type === "terminal" ? `${activeTabObj.title} (Copia)` : `${activeTabObj.title} (Copia)`,
           isSplitViewOpen: false,
         };
         setTabs((prevTabs) => [...prevTabs, clonedTab]);
@@ -225,7 +258,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
 
           return {
             ...tab,
-            title: getTabTitle(updatedPanelState.currentPath),
+            title: tab.type === "terminal" ? tab.title : getTabTitle(updatedPanelState.currentPath),
             leftPanel: updatedPanelState,
             rightPanel: updatedPanelState,
           };
@@ -322,6 +355,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
         activePanelState,
         otherPanelState,
         createTab,
+        createTerminalTab,
         closeTab,
         selectTab,
         toggleSplitView,

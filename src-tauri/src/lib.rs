@@ -1,9 +1,31 @@
 mod search;
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
+use std::io::{Read, Write};
 use std::path::Path;
+use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::time::UNIX_EPOCH;
+use tauri::{AppHandle, Emitter};
+
+pub struct TerminalSession {
+    pub child: Child,
+    pub stdin: std::process::ChildStdin,
+}
+
+pub struct TerminalManager {
+    pub sessions: Arc<Mutex<HashMap<String, TerminalSession>>>,
+}
+
+impl Default for TerminalManager {
+    fn default() -> Self {
+        Self {
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileItem {
@@ -22,7 +44,7 @@ fn scan_directory(path: String) -> Result<Vec<FileItem>, String> {
         if let Ok(entry) = entry {
             let file_name = entry.file_name().to_string_lossy().into_owned();
             let metadata = entry.metadata();
-            
+
             let (is_dir, size, modified_at) = match metadata {
                 Ok(meta) => {
                     let is_dir = meta.is_dir();
@@ -147,9 +169,110 @@ fn read_file_content(path: String) -> Result<String, String> {
     Ok(content)
 }
 
+#[tauri::command]
+fn create_terminal_session(
+    app: AppHandle,
+    state: tauri::State<'_, TerminalManager>,
+    session_id: String,
+    cwd: String,
+) -> Result<(), String> {
+    let mut command = if cfg!(target_os = "windows") {
+        let mut cmd = Command::new("powershell.exe");
+        cmd.args(["-NoLogo", "-NoExit"]);
+        cmd
+    } else {
+        Command::new("/bin/bash")
+    };
+
+    let target_cwd = if cwd.trim().is_empty() {
+        "C:/".to_string()
+    } else {
+        cwd
+    };
+
+    if std::path::Path::new(&target_cwd).exists() {
+        command.current_dir(&target_cwd);
+    }
+
+    command.stdin(Stdio::piped());
+    command.stdout(Stdio::piped());
+    command.stderr(Stdio::piped());
+
+    let mut child = command.spawn().map_err(|e| format!("Failed to spawn shell: {}", e))?;
+    let stdin = child.stdin.take().ok_or("Failed to open stdin")?;
+    let mut stdout = child.stdout.take().ok_or("Failed to open stdout")?;
+    let mut stderr = child.stderr.take().ok_or("Failed to open stderr")?;
+
+    {
+        let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        sessions.insert(session_id.clone(), TerminalSession { child, stdin });
+    }
+
+    let app_out = app.clone();
+    let id_out = session_id.clone();
+    std::thread::spawn(move || {
+        let mut buffer = [0u8; 1024];
+        loop {
+            match stdout.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(n) => {
+                    let text = String::from_utf8_lossy(&buffer[..n]).to_string();
+                    let _ = app_out.emit(&format!("terminal-output-{}", id_out), text);
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    let app_err = app;
+    let id_err = session_id;
+    std::thread::spawn(move || {
+        let mut buffer = [0u8; 1024];
+        loop {
+            match stderr.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(n) => {
+                    let text = String::from_utf8_lossy(&buffer[..n]).to_string();
+                    let _ = app_err.emit(&format!("terminal-output-{}", id_err), text);
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+fn write_terminal_data(
+    state: tauri::State<'_, TerminalManager>,
+    session_id: String,
+    data: String,
+) -> Result<(), String> {
+    let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+    if let Some(session) = sessions.get_mut(&session_id) {
+        session.stdin.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        session.stdin.flush().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn close_terminal_session(
+    state: tauri::State<'_, TerminalManager>,
+    session_id: String,
+) -> Result<(), String> {
+    let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+    if let Some(mut session) = sessions.remove(&session_id) {
+        let _ = session.child.kill();
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(TerminalManager::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -160,6 +283,9 @@ pub fn run() {
             move_item,
             search::search_files,
             read_file_content,
+            create_terminal_session,
+            write_terminal_data,
+            close_terminal_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
