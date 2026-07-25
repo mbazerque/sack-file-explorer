@@ -367,6 +367,7 @@ export function FileList({
   }, [isActivePanel, selectedItem, selectedItems, isPreviewOpen, sortedFiles, onSelectItem, onSelectSingle]);
 
   const handleContainerClick = () => {
+    // Only clear if clicking on container background, table header, or empty spaces outside rows
     if (onPanelFocus) onPanelFocus();
     if (onClearSelection) onClearSelection();
     else onSelectItem(null);
@@ -508,7 +509,7 @@ export function FileList({
   const normCurrentPath = currentPath.replace(/\\/g, "/").toLowerCase();
 
   return (
-    <div className={`p-4 ${panelContainerStyles}`} onClick={handleContainerClick}>
+    <div className={`p-4 min-h-full flex-1 flex flex-col ${panelContainerStyles}`} onClick={handleContainerClick}>
       {isSplitViewOpen && (
         <div className="mb-2 flex items-center text-xs px-1 py-0.5 border-b border-gray-800/40 pb-1.5">
           <span className="font-semibold flex items-center gap-1.5 min-w-0 max-w-full">

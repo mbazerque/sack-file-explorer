@@ -232,7 +232,10 @@ function App() {
             currentPath={activeNav.currentPath}
           />
 
-          <main className="flex-1 overflow-y-auto bg-gray-950 relative min-w-0 flex flex-col">
+          <main
+            onClick={() => activeNav.clearSelection()}
+            className="flex-1 overflow-y-auto bg-gray-950 relative min-w-0 flex flex-col"
+          >
             {/* ── Terminal tabs: always mounted, shown/hidden via CSS to preserve PTY processes ── */}
             {tabs
               .filter((t) => t.type === "terminal")
