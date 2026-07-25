@@ -645,8 +645,8 @@ export function FileList({
                     isCut ? "opacity-50" : ""
                   } ${
                     isSelected
-                      ? "bg-blue-600/30 text-white font-medium ring-1 ring-blue-500/50"
-                      : "hover:bg-gray-800/60"
+                      ? "bg-zinc-800 text-zinc-100 font-medium ring-1 ring-zinc-700/80 shadow-sm"
+                      : "hover:bg-gray-850/60"
                   }`}
                 >
                   {/* Name column with Inline Renaming support */}

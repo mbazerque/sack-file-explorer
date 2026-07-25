@@ -115,8 +115,8 @@ function SidebarTreeNode({
       <div
         className={`group flex items-center gap-1.5 py-1 px-1.5 rounded-lg transition-all text-xs border ${
           isActive
-            ? "bg-blue-600/20 text-blue-300 font-semibold border-blue-500/30 ring-1 ring-blue-500/20"
-            : "text-gray-300 hover:bg-gray-800 hover:text-white border-transparent"
+            ? "bg-zinc-800/90 text-zinc-100 font-semibold border-zinc-700/80 ring-1 ring-zinc-700/40"
+            : "text-gray-300 hover:bg-gray-850 hover:text-white border-transparent"
         }`}
         style={{ paddingLeft: `${depth * 12 + 6}px` }}
       >
@@ -627,8 +627,8 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
                   <div
                     className={`w-full px-2 py-1.5 rounded-lg transition-all flex flex-col gap-1 text-xs border ${
                       isActive
-                        ? "bg-blue-600/20 text-blue-300 font-semibold border-blue-500/30 ring-1 ring-blue-500/20"
-                        : "text-gray-300 hover:bg-gray-800 hover:text-white border-transparent"
+                        ? "bg-zinc-800/90 text-zinc-100 font-semibold border-zinc-700/80 ring-1 ring-zinc-700/40"
+                        : "text-gray-300 hover:bg-gray-850 hover:text-white border-transparent"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 w-full">

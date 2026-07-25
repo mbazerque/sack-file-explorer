@@ -34,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Operaciones de Portapapeles (`ClipboardContext.tsx`)**: Contexto global del portapapeles con `Ctrl + C` (copiar) y `Ctrl + X` (cortar). Los elementos cortados se atenúan visualmente con `opacity-50` en la tabla principal. Pegado con `Ctrl + V` mediante IPC de Tauri (`copy_item` y `move_item`).
   - **Renombrado Inline (F2)**: Al presionar `F2` o elegir "Renombrar" en el menú contextual, la celda se transforma en un campo de texto con la selección automática del nombre base del archivo (excluyendo la extensión). Confirmación con `Enter` / `onBlur` vía IPC de Rust (`rename_item`) y cancelación con `Esc`.
   - **Eliminación a Papelera (Delete)**: Atajo `Delete` para mover archivos o múltiples selecciones directamente a la Papelera de Reciclaje del sistema ($Recycle.Bin en Windows vía `SHFileOperationW`).
+- **Diseño Neutro Linear / Vercel (Subtle Dark Palette)**:
+  - Definición del sistema de color gris/zinc neutro de bajo contraste en `tailwind.config.js` y `App.css`:
+    - Fondo principal (Background): `#09090b` (Zinc 950)
+    - Superficies / Tarjetas / Paneles: `#121215` (Zinc 900)
+    - Bordes / Divisores: `#27272a` (Zinc 800)
+    - Estados Hover: `#18181b` (Zinc 850)
+    - Texto Principal: `#f4f4f5` (Zinc 100)
+    - Texto Secundario / Mapeado Muted: `#a1a1aa` (Zinc 400)
+    - Elemento Seleccionado / Acento: `#27272a` con borde sutil `#3f3f46` (Zinc 700).
 
 ## [v0.4.0] - 2026-07-25 - Terminal & CLI Release
 
