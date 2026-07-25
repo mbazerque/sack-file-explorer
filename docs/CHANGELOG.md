@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Soporte para pestañas de tipo `'terminal'` en `TabContext` y `TabBar`, con capacidad de renderizado en panel completo y compatibilidad con Vista Dividida (Split View).
   - Motor de emulación de consola nativa con `@xterm/xterm` + `@xterm/addon-fit` y streaming IPC bidireccional en Rust.
 
+### Fixed
+- **Terminal Integrada con PTY real (ConPTY en Windows)**:
+  - Reemplazado el backend basado en pipes planos (`Stdio::piped()`) de `std::process::Command` por un pseudo-terminal real usando la librería `portable-pty`.
+  - Solucionados los problemas de borrado visual de caracteres al presionar Backspace (`\x7f` / `\b`), saltos de línea incorrectos y congelamiento/sobreescritura de texto en PowerShell/Bash.
+  - Sincronización dinámica de dimensiones `cols`/`rows` mediante el nuevo comando `resize_terminal` y listener de eventos en el frontend de React.
+  - Prevención de fugas de procesos (fantasmas) y duplicación de prompts (`PS C:\>`) en StrictMode mediante una referencia de ciclo de vida unificada (`useRef`) y una desconexión explícita al desmontar el componente.
+
+
 ## [v0.3.0] - 2026-07-24
 
 ### Changed

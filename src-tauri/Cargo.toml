@@ -33,4 +33,6 @@ rayon = "1.10"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 # Detección automática de núcleos de CPU para configurar los threads del walker
 num_cpus = "1.16"
+# PTY real (ConPTY en Windows) para terminal interactiva embebida
+portable-pty = "0.8"
 

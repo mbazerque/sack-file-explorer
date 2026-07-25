@@ -5,14 +5,15 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Emitter};
 
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+
 pub struct TerminalSession {
-    pub child: Child,
-    pub stdin: std::process::ChildStdin,
+    pub master: Box<dyn MasterPty + Send>,
+    pub writer: Box<dyn Write + Send>,
 }
 
 pub struct TerminalManager {
@@ -175,65 +176,87 @@ fn create_terminal_session(
     state: tauri::State<'_, TerminalManager>,
     session_id: String,
     cwd: String,
+    cols: Option<u16>,
+    rows: Option<u16>,
 ) -> Result<(), String> {
-    let mut command = if cfg!(target_os = "windows") {
-        let mut cmd = Command::new("powershell.exe");
-        cmd.args(["-NoLogo", "-NoExit"]);
-        cmd
+    // Kill existing session with the same session_id to avoid duplicate processes
+    {
+        let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        // Dropping the old session closes the master PTY and kills the child
+        sessions.remove(&session_id);
+    }
+
+    let pty_system = native_pty_system();
+
+    let pty_size = PtySize {
+        rows: rows.unwrap_or(24),
+        cols: cols.unwrap_or(80),
+        pixel_width: 0,
+        pixel_height: 0,
+    };
+
+    let pair = pty_system
+        .openpty(pty_size)
+        .map_err(|e| format!("Failed to open PTY: {}", e))?;
+
+    let mut cmd = if cfg!(target_os = "windows") {
+        let mut c = CommandBuilder::new("powershell.exe");
+        c.args(["-NoLogo"]);
+        c
     } else {
-        Command::new("/bin/bash")
+        CommandBuilder::new("/bin/bash")
     };
 
     let target_cwd = if cwd.trim().is_empty() {
-        "C:/".to_string()
+        "C:\\".to_string()
     } else {
         cwd
     };
 
     if std::path::Path::new(&target_cwd).exists() {
-        command.current_dir(&target_cwd);
+        cmd.cwd(&target_cwd);
     }
 
-    command.stdin(Stdio::piped());
-    command.stdout(Stdio::piped());
-    command.stderr(Stdio::piped());
+    let _child = pair
+        .slave
+        .spawn_command(cmd)
+        .map_err(|e| format!("Failed to spawn shell: {}", e))?;
 
-    let mut child = command.spawn().map_err(|e| format!("Failed to spawn shell: {}", e))?;
-    let stdin = child.stdin.take().ok_or("Failed to open stdin")?;
-    let mut stdout = child.stdout.take().ok_or("Failed to open stdout")?;
-    let mut stderr = child.stderr.take().ok_or("Failed to open stderr")?;
+    // We intentionally drop the slave side — the master is enough for I/O
+    drop(pair.slave);
+
+    let mut reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|e| format!("Failed to clone PTY reader: {}", e))?;
+
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|e| format!("Failed to take PTY writer: {}", e))?;
 
     {
         let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
-        sessions.insert(session_id.clone(), TerminalSession { child, stdin });
+        sessions.insert(
+            session_id.clone(),
+            TerminalSession {
+                master: pair.master,
+                writer,
+            },
+        );
     }
 
-    let app_out = app.clone();
-    let id_out = session_id.clone();
+    // Spawn a thread that reads PTY output and emits it to the frontend
+    let app_handle = app;
+    let id = session_id;
     std::thread::spawn(move || {
-        let mut buffer = [0u8; 1024];
+        let mut buffer = [0u8; 4096];
         loop {
-            match stdout.read(&mut buffer) {
+            match reader.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(n) => {
                     let text = String::from_utf8_lossy(&buffer[..n]).to_string();
-                    let _ = app_out.emit(&format!("terminal-output-{}", id_out), text);
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    let app_err = app;
-    let id_err = session_id;
-    std::thread::spawn(move || {
-        let mut buffer = [0u8; 1024];
-        loop {
-            match stderr.read(&mut buffer) {
-                Ok(0) => break,
-                Ok(n) => {
-                    let text = String::from_utf8_lossy(&buffer[..n]).to_string();
-                    let _ = app_err.emit(&format!("terminal-output-{}", id_err), text);
+                    let _ = app_handle.emit(&format!("terminal-output-{}", id), text);
                 }
                 Err(_) => break,
             }
@@ -251,8 +274,33 @@ fn write_terminal_data(
 ) -> Result<(), String> {
     let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
     if let Some(session) = sessions.get_mut(&session_id) {
-        session.stdin.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
-        session.stdin.flush().map_err(|e| e.to_string())?;
+        session
+            .writer
+            .write_all(data.as_bytes())
+            .map_err(|e| e.to_string())?;
+        session.writer.flush().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn resize_terminal(
+    state: tauri::State<'_, TerminalManager>,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+    if let Some(session) = sessions.get(&session_id) {
+        session
+            .master
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .map_err(|e| format!("Failed to resize PTY: {}", e))?;
     }
     Ok(())
 }
@@ -263,9 +311,8 @@ fn close_terminal_session(
     session_id: String,
 ) -> Result<(), String> {
     let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
-    if let Some(mut session) = sessions.remove(&session_id) {
-        let _ = session.child.kill();
-    }
+    // Dropping the TerminalSession closes master PTY which signals EOF to child
+    sessions.remove(&session_id);
     Ok(())
 }
 
@@ -285,8 +332,10 @@ pub fn run() {
             read_file_content,
             create_terminal_session,
             write_terminal_data,
+            resize_terminal,
             close_terminal_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

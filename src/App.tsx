@@ -34,7 +34,8 @@ function App() {
       const isInputFocused =
         document.activeElement instanceof HTMLInputElement ||
         document.activeElement instanceof HTMLTextAreaElement ||
-        (document.activeElement as HTMLElement)?.isContentEditable;
+        (document.activeElement as HTMLElement)?.isContentEditable ||
+        (document.activeElement as HTMLElement)?.closest(".xterm") !== null;
 
       // Ctrl + J or Ctrl + ~ / Ctrl + ` to toggle bottom terminal
       const isTerminalShortcut =
