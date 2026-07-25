@@ -16,10 +16,11 @@ export function BottomTerminal({
   currentPath,
   sessionId,
 }: BottomTerminalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="h-64 border-t border-gray-800 bg-gray-950 flex flex-col shrink-0 z-20 shadow-lg w-full">
+    <div
+      className="border-t border-gray-800 bg-gray-950 flex flex-col shrink-0 z-20 shadow-lg w-full"
+      style={{ display: isOpen ? "flex" : "none", height: "16rem" }}
+    >
       {/* Header */}
       <div className="h-8 bg-gray-900 border-b border-gray-800 px-3 flex items-center justify-between text-xs text-gray-300 select-none shrink-0">
         <div className="flex items-center gap-2 font-mono text-[11px] text-gray-300 truncate">
@@ -59,3 +60,4 @@ export function BottomTerminal({
     </div>
   );
 }
+
