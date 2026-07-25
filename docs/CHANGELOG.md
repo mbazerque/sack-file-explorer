@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Consolidación de Barra de Herramientas Compacta ([Navbar.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/Navbar.tsx))**:
+  - Eliminación completa del bloque redundantemente titulado "File Explorer" y su ícono de lupa.
+  - Consolidación de todos los elementos de control en un único contenedor horizontal flex de ~36px a 40px de altura:
+    1. Grupo compacto de navegación (`<`, `>`, `↑`).
+    2. PathBar / Breadcrumbs interactivo en el centro (`flex-1 min-w-0`), expandiéndose para aprovechar todo el espacio horizontal.
+    3. Controles integrados de búsqueda (`Buscar archivos...`), conector Fuzzy y botón Split View en el extremo derecho.
 - **Breadcrumb / PathBar Interactivo**:
   - Transformación de la barra de ruta plana en migas de pan (breadcrumbs) con segmentos cliqueables para navegar directamente a cualquier carpeta padre.
   - Modo Edición de Ruta activable al hacer clic en el espacio vacío de la barra o mediante el atajo de teclado `Ctrl + L`, con selección automática de texto plano, soporte de tipeo/pegado y cancelación con `Esc`.

@@ -186,7 +186,7 @@ function App() {
       <TabBar />
 
       {/* 2. Top Navigation & Search Header (100% width edge to edge) */}
-      <div className="p-4 border-b border-gray-800 bg-gray-900 z-10 shadow-sm shrink-0 w-full">
+      <div className="px-3 py-1.5 border-b border-gray-800 bg-gray-900 z-10 shadow-sm shrink-0 w-full">
         <Navbar
           currentPath={activeNav.currentPath}
           isScanning={activeNav.isScanning}
