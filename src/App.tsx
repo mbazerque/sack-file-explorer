@@ -36,8 +36,12 @@ function App() {
         document.activeElement instanceof HTMLTextAreaElement ||
         (document.activeElement as HTMLElement)?.isContentEditable;
 
-      // Ctrl + ~ or Ctrl + ` (Backquote) to toggle bottom terminal
-      if ((e.ctrlKey || e.metaKey) && (e.code === "Backquote" || e.key === "~" || e.key === "`")) {
+      // Ctrl + J or Ctrl + ~ / Ctrl + ` to toggle bottom terminal
+      const isTerminalShortcut =
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "j" || e.key === "J" || e.code === "KeyJ" || e.code === "Backquote" || e.key === "~" || e.key === "`");
+
+      if (isTerminalShortcut) {
         e.preventDefault();
         setIsBottomTerminalOpen((prev) => !prev);
       } else if (e.key === "F5") {

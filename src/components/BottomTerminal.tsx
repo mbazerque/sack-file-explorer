@@ -44,7 +44,7 @@ export function BottomTerminal({
           <button
             type="button"
             onClick={onClose}
-            title="Cerrar terminal (Ctrl+~)"
+            title="Cerrar terminal (Ctrl+J)"
             className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
           >
             <X className="w-3.5 h-3.5" />
