@@ -14,6 +14,7 @@ sack/
 │   │   ├── TabBar.tsx         # Titlebar with tab management (<, >, refresh, split view toggle, new tab/terminal)
 │   │   ├── Navbar.tsx         # Interactive breadcrumb pathbar, edit mode (Ctrl+L), fast search input
 │   │   ├── Sidebar.tsx        # Collapsible groups, custom folders, drag & drop dropzones, lazy subfolder tree view & drives
+│   │   ├── FileGrid.tsx       # Grid/Card view for files with icon-based visual layout, multi-selection & rename
 │   │   ├── FileList.tsx       # Interactive metadata table view, multi-selection, inline rename (F2), sorting
 │   │   ├── ContextMenu.tsx    # Right-click contextual menu (Pin to Quick Access, Add to Group, Rename, Delete)
 │   │   ├── QuickPreviewModal.tsx # Fast file preview panel (Spacebar trigger) for code, images, text & metadata
@@ -46,10 +47,10 @@ sack/
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                 React Frontend (TSX)                                   │
 │                                                                                        │
-│  [Navbar] ──> useNavigation / useSearch ──> [FileList] ──> [ContextMenu]               │
-│       │                    │                     │                │                    │
-│  Breadcrumb            `invoke()`           Multi-Select      Pin / Group              │
-│  & Search              IPC Call             & Inline Rename   Management               │
+│  [Navbar] ──> useNavigation / useSearch ──> [FileList / FileGrid] ──> [ContextMenu]        │
+│       │                    │                     │    │              │                    │
+│  Breadcrumb            `invoke()`           Multi-Select          Pin / Group              │
+│  & Search              IPC Call             & Inline Rename      Management               │
 └────────────────────────────┬──────────────────────────────────────┬────────────────────┘
                              │ IPC Communication                    │ Event Sync
 ┌────────────────────────────▼──────────────────────────────────────▼────────────────────┐

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Grid View: orden de carpetas en cuadrícula ([FileGrid.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/FileGrid.tsx))**:
+  - Corregida la dirección de ordenamiento de carpetas; se invertía la lógica (`b.is_dir` en vez de `a.is_dir`), provocando que las carpetas se posicionaran al final en lugar de al inicio de la cuadrícula.
+- **Table View: sorting por columna Tipo ([FileList.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/FileList.tsx))**:
+  - Eliminado el forzado de carpetas-al-top al ordenar por la columna Tipo; ahora los archivos y carpetas se intercalan según su tipo real.
+  - Comparación de tipo con `localeCompare` numérico sensible para resultados más precisos.
+  - Tiebreaker por nombre cuando la comparación de tipo resulta en empate.
+  - Fallback de comparación por nombre cuando la columna principal devuelve cero, evitando orden no determinista.
+
 ### Added
 - **Conmutador de Vistas y Grid View ([FileGrid.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/FileGrid.tsx) & [Navbar.tsx](file:///C:/Users/bazer/Documents/sack-file-explorer/src/components/Navbar.tsx))**:
   - Implementación del modo de visualización en Cuadrícula / Grid (`grid`) alternativo a la vista tradicional de Tabla (`table`).

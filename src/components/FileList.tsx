@@ -286,8 +286,10 @@ export function FileList({
 
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
-      if (a.is_dir !== b.is_dir) {
-        return b.is_dir ? 1 : -1;
+      if (sortColumn !== "type") {
+        if (a.is_dir !== b.is_dir) {
+          return b.is_dir ? 1 : -1;
+        }
       }
 
       let comparison = 0;
@@ -301,7 +303,10 @@ export function FileList({
       } else if (sortColumn === "type") {
         const typeA = getFileTypeLabel(a);
         const typeB = getFileTypeLabel(b);
-        comparison = typeA.localeCompare(typeB);
+        comparison = typeA.localeCompare(typeB, undefined, { numeric: true, sensitivity: "base" });
+        if (comparison === 0) {
+          comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+        }
       } else if (sortColumn === "size") {
         const sizeA = a.is_dir ? -1 : a.size;
         const sizeB = b.is_dir ? -1 : b.size;
@@ -316,7 +321,9 @@ export function FileList({
         comparison = scoreA - scoreB;
       }
 
-      return sortDirection === "asc" ? comparison : -comparison;
+      const result = sortDirection === "asc" ? comparison : -comparison;
+      if (result !== 0) return result;
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     });
   }, [files, sortColumn, sortDirection]);
 
