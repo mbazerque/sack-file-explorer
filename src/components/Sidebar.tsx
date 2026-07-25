@@ -47,14 +47,6 @@ function normalizePath(p: string): string {
   return p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
 
-function formatFileSize(bytes: number): string {
-  if (!bytes || bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-}
-
 function getFavoriteIcon(iconType?: string, isExpanded?: boolean) {
   switch (iconType) {
     case "home":
@@ -625,14 +617,14 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
               return (
                 <li key={drive.path} className="flex flex-col">
                   <div
-                    className={`w-full px-2 py-1.5 rounded-lg transition-all flex flex-col gap-1 text-xs border ${
+                    className={`w-full px-2 py-1 rounded-lg transition-all flex flex-col gap-0.5 text-xs border ${
                       isActive
                         ? "bg-zinc-800/90 text-zinc-100 font-semibold border-zinc-700/80 ring-1 ring-zinc-700/40"
                         : "text-gray-300 hover:bg-gray-850 hover:text-white border-transparent"
                     }`}
                   >
+                    {/* Line 1: icon + name + percentage */}
                     <div className="flex items-center gap-1.5 w-full">
-                      {/* Chevron expand button */}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -655,20 +647,21 @@ export function Sidebar({ onNavigate, currentPath }: SidebarProps) {
                         type="button"
                         onClick={() => onNavigate(drive.path)}
                         title={drive.path}
-                        className="flex-1 flex items-center gap-2 text-left min-w-0"
+                        className="flex-1 flex items-center gap-1.5 text-left min-w-0"
                       >
-                        <HardDrive className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-400" : "text-blue-500"}`} />
-                        <span className="truncate font-medium flex-1">{drive.name}</span>
+                        <HardDrive className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-blue-400" : "text-blue-500"}`} />
+                        <span className="truncate font-medium">{drive.name}</span>
                       </button>
+
+                      {hasSize && (
+                        <span className="text-[10px] text-gray-500 tabular-nums shrink-0">{percentage}%</span>
+                      )}
                     </div>
 
+                    {/* Line 2: thin progress bar */}
                     {hasSize && (
-                      <div className="w-full pl-6 pr-1 space-y-0.5">
-                        <div className="flex items-center justify-between text-[10px] text-gray-400">
-                          <span>{formatFileSize(drive.available_bytes)} libres</span>
-                          <span>{percentage}%</span>
-                        </div>
-                        <div className="w-full bg-gray-950 rounded-full h-1.5 overflow-hidden border border-gray-700/50">
+                      <div className="w-full pl-6 pr-1">
+                        <div className="w-full bg-gray-950 rounded-full h-0.5 overflow-hidden">
                           <div
                             className={`h-full transition-all rounded-full ${
                               percentage > 90
