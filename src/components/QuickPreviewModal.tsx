@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
 import {
   X,
   File,
@@ -13,6 +14,7 @@ import {
   Terminal,
   AlertCircle,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { FileItem, FileInfo } from "../types/file";
 
@@ -247,14 +249,33 @@ export function QuickPreviewModal({
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            title="Cerrar vista previa (Esc / Espacio)"
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!item.is_dir && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await openPath(fullPath);
+                  } catch (err) {
+                    console.error("Failed to open file:", err);
+                  }
+                }}
+                title="Abrir con el programa predeterminado"
+                className="px-2.5 py-1 text-xs rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 border border-gray-700/80 transition-colors shrink-0 flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                <span>Abrir</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              title="Cerrar vista previa (Esc / Espacio)"
+              className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}
@@ -307,8 +328,25 @@ export function QuickPreviewModal({
                   : "Este tipo de archivo binario o no soportado no se puede visualizar directamente."}
               </p>
 
+              {!item.is_dir && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await openPath(fullPath);
+                    } catch (err) {
+                      console.error("Failed to open file:", err);
+                    }
+                  }}
+                  className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs rounded-xl shadow-lg transition-colors flex items-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Abrir con programa predeterminado</span>
+                </button>
+              )}
+
               {/* Metadata card */}
-              <div className="mt-6 w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-xl p-3.5 text-left space-y-2 text-xs text-gray-300 shadow-md">
+              <div className="mt-5 w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-xl p-3.5 text-left space-y-2 text-xs text-gray-300 shadow-md">
                 <div className="flex justify-between py-1 border-b border-gray-800/60">
                   <span className="text-gray-500 font-medium">Nombre:</span>
                   <span className="font-mono text-gray-200 truncate max-w-[240px]">{item.name}</span>

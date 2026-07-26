@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { FileItem, FileInfo } from "../types/file";
 import { ContextMenu } from "./ContextMenu";
 import { QuickPreviewModal } from "./QuickPreviewModal";
@@ -263,6 +264,12 @@ export function FileGrid({
           e.preventDefault();
           setIsPreviewOpen((prev) => !prev);
         }
+      } else if (e.key === "Enter") {
+        const activeItem = selectedItems[0] || selectedItem;
+        if (activeItem) {
+          e.preventDefault();
+          handleCardDoubleClick(activeItem);
+        }
       } else if (e.key === "Escape") {
         if (isPreviewOpen) {
           e.preventDefault();
@@ -289,7 +296,7 @@ export function FileGrid({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isActivePanel, selectedItem, selectedItems, isPreviewOpen, sortedFiles, onSelectItem, onSelectSingle]);
+  }, [isActivePanel, selectedItem, selectedItems, isPreviewOpen, sortedFiles, onSelectItem, onSelectSingle, currentPath]);
 
   const handleContainerClick = () => {
     if (onPanelFocus) onPanelFocus();
@@ -313,18 +320,23 @@ export function FileGrid({
     }
   };
 
-  const handleCardDoubleClick = (item: ListItem) => {
+  const handleCardDoubleClick = async (item: ListItem) => {
     if (onPanelFocus) onPanelFocus();
     const fileInfo = item as Partial<FileInfo>;
-    if (fileInfo.path) {
-      if (item.is_dir) {
-        onNavigate(fileInfo.path);
+    const fullPath = fileInfo.path
+      ? fileInfo.path
+      : currentPath.endsWith("/") || currentPath.endsWith("\\")
+      ? `${currentPath}${item.name}`
+      : `${currentPath}/${item.name}`;
+
+    if (item.is_dir) {
+      onNavigate(fullPath);
+    } else {
+      try {
+        await openPath(fullPath);
+      } catch (err) {
+        console.error("Failed to open file with default app:", err);
       }
-    } else if (item.is_dir) {
-      const base = currentPath.endsWith("/") || currentPath.endsWith("\\")
-        ? currentPath
-        : `${currentPath}/`;
-      onNavigate(`${base}${item.name}`);
     }
   };
 
@@ -531,6 +543,7 @@ export function FileGrid({
           currentPath={currentPath}
           onClose={() => setContextMenu(null)}
           onDeleteSuccess={onRefresh}
+          onNavigate={onNavigate}
           isSplitViewOpen={isSplitViewOpen}
           targetPanelPath={targetPanelPath}
           onActionSuccess={() => {

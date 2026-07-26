@@ -13,8 +13,10 @@ import {
   Eye,
   EyeOff,
   Code2,
+  ExternalLink,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { FileItem, FileInfo } from "../types/file";
 import { useTabContext } from "../context/TabContext";
 import {
@@ -34,6 +36,7 @@ interface ContextMenuProps {
   currentPath: string;
   onClose: () => void;
   onDeleteSuccess: () => void;
+  onNavigate?: (path: string) => void;
   // Dual-pane / Split view props
   isSplitViewOpen?: boolean;
   targetPanelPath?: string;
@@ -47,6 +50,7 @@ export function ContextMenu({
   currentPath,
   onClose,
   onDeleteSuccess,
+  onNavigate,
   isSplitViewOpen = false,
   targetPanelPath,
   onActionSuccess,
@@ -92,6 +96,19 @@ export function ContextMenu({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose, isCreatingGroupModalOpen]);
+
+  const handleOpen = async () => {
+    onClose();
+    if (item.is_dir) {
+      if (onNavigate) onNavigate(fullPath);
+    } else {
+      try {
+        await openPath(fullPath);
+      } catch (err) {
+        console.error("Failed to open file:", err);
+      }
+    }
+  };
 
   const handlePinToQuickAccess = () => {
     addItemToQuickAccess(item.name, fullPath, item.is_dir);
@@ -187,6 +204,16 @@ export function ContextMenu({
         </div>
 
         <div className="py-1">
+          {/* Open with default program / Navigate */}
+          <button
+            type="button"
+            onClick={handleOpen}
+            className="w-full px-3 py-1.5 text-left hover:bg-blue-600/20 hover:text-blue-300 flex items-center gap-2.5 transition-colors font-medium text-white"
+          >
+            <ExternalLink className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{item.is_dir ? "Abrir carpeta" : "Abrir"}</span>
+          </button>
+
           {/* Pin to Quick Access */}
           <button
             type="button"
