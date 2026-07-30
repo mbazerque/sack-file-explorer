@@ -167,6 +167,38 @@ fn open_in_terminal(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_file_default(path: String) -> Result<(), String> {
+    let norm_path = path.replace("/", "\\");
+    let p = Path::new(&norm_path);
+    if !p.exists() {
+        return Err(format!("El archivo no existe: {}", norm_path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &norm_path])
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&norm_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&norm_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn open_in_vscode(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -515,6 +547,7 @@ pub fn run() {
             close_terminal_session,
             load_settings,
             save_settings,
+            open_file_default,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

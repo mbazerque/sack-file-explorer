@@ -15,13 +15,12 @@ import {
   Zap,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { openPath } from "@tauri-apps/plugin-opener";
 import { FileItem, FileInfo } from "../types/file";
 import { ContextMenu } from "./ContextMenu";
 import { QuickPreviewModal } from "./QuickPreviewModal";
 import { useClipboard } from "../context/ClipboardContext";
 import { useTabContext } from "../context/TabContext";
-import { isDimmedItem } from "../utils/fileUtils";
+import { isDimmedItem, openFileWithDefaultApp } from "../utils/fileUtils";
 
 export type ListItem = FileItem | FileInfo;
 
@@ -333,7 +332,7 @@ export function FileGrid({
       onNavigate(fullPath);
     } else {
       try {
-        await openPath(fullPath);
+        await openFileWithDefaultApp(fullPath);
       } catch (err) {
         console.error("Failed to open file with default app:", err);
       }

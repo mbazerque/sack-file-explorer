@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { openPath } from "@tauri-apps/plugin-opener";
 import {
   X,
   File,
@@ -17,6 +16,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { FileItem, FileInfo } from "../types/file";
+import { openFileWithDefaultApp } from "../utils/fileUtils";
 
 export type ListItem = FileItem | FileInfo;
 
@@ -255,7 +255,7 @@ export function QuickPreviewModal({
                 type="button"
                 onClick={async () => {
                   try {
-                    await openPath(fullPath);
+                    await openFileWithDefaultApp(fullPath);
                   } catch (err) {
                     console.error("Failed to open file:", err);
                   }
@@ -333,7 +333,7 @@ export function QuickPreviewModal({
                   type="button"
                   onClick={async () => {
                     try {
-                      await openPath(fullPath);
+                      await openFileWithDefaultApp(fullPath);
                     } catch (err) {
                       console.error("Failed to open file:", err);
                     }

@@ -16,8 +16,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { openPath } from "@tauri-apps/plugin-opener";
 import { FileItem, FileInfo } from "../types/file";
+import { openFileWithDefaultApp } from "../utils/fileUtils";
 import { useTabContext } from "../context/TabContext";
 import {
   getStoredGroups,
@@ -103,7 +103,7 @@ export function ContextMenu({
       if (onNavigate) onNavigate(fullPath);
     } else {
       try {
-        await openPath(fullPath);
+        await openFileWithDefaultApp(fullPath);
       } catch (err) {
         console.error("Failed to open file:", err);
       }
